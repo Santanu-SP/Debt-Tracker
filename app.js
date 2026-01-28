@@ -135,6 +135,155 @@ function handleRegister() {
     toggleAuthMode('login');
 }
 
+// --- REPORTS ---
+function renderReports() {
+    const filter = document.getElementById('reports-filter').value;
+    const now = new Date();
+    let startDate, endDate;
+
+    if (filter === 'this_month') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        document.getElementById('reports-date-display').textContent = startDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    } else if (filter === 'last_month') {
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        document.getElementById('reports-date-display').textContent = startDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    } else {
+        startDate = new Date(0); // Beginning of time
+        endDate = new Date(8640000000000000); // End of time
+        document.getElementById('reports-date-display').textContent = 'All Time';
+    }
+
+    let income = 0;
+    let expense = 0;
+    let categoryExpenses = {};
+
+    STATE.transactions.forEach(t => {
+        const tDate = new Date(t.date);
+        if (tDate >= startDate && tDate <= endDate) {
+            if (t.type === 'income' || t.type === 'salary') {
+                income += t.amount;
+            } else if (t.type === 'expense') {
+                expense += t.amount;
+                // Category Calculation
+                // Assuming desc might be used as category or we default to 'Uncategorized' if we don't have cat field
+                // Current app doesn't seem to have strict category field? Let's use 'desc' or generic.
+                // Looking at addTransaction, we don't have explicit category yet. 
+                // Let's fallback to grouping by distinct description words or just "General" if missing.
+                // WAIT: User mock showed categories like "Food", "Transport". 
+                // Since we don't have that field yet, let's auto-categorize by descriptions containing keywords
+                // or just show "General" for now to avoid breaking.
+                // *Self-correction*: For now, group by Description (Top 5) or just show Total.
+                // Better: Let's assume description is the category for now.
+                const cat = t.desc || 'Other';
+                categoryExpenses[cat] = (categoryExpenses[cat] || 0) + t.amount;
+            } else if (t.type === 'lend') {
+                // Lend counts as expense flow but asset. For report, maybe treat as expense or separate?
+                // User mock shows Income vs Expense. Let's count lend as expense for cash visuals.
+                expense += t.amount;
+                const cat = 'Lending';
+                categoryExpenses[cat] = (categoryExpenses[cat] || 0) + t.amount;
+            } else if (t.type === 'repayment') {
+                income += t.amount; // Repayment is cash in
+            }
+        }
+    });
+
+    // Update Stats
+    document.getElementById('report-income').textContent = formatCurrency(income);
+    document.getElementById('report-expense').textContent = formatCurrency(expense);
+    document.getElementById('report-savings').textContent = formatCurrency(income - expense);
+
+    // Update Bar Chart
+    const barContainer = document.getElementById('bar-chart-container');
+    const maxVal = Math.max(income, expense, 100); // Avoid div by zero
+    const incomeHeight = (income / maxVal) * 100;
+    const expenseHeight = (expense / maxVal) * 100;
+
+    // Animate bars (simple width/height set)
+    barContainer.innerHTML = `
+        <div class="bar-group">
+            <div class="bar" style="height:${incomeHeight}%; background:var(--success);"></div>
+            <div class="bar-label">Income</div>
+        </div>
+        <div class="bar-group">
+            <div class="bar" style="height:${expenseHeight}%; background:var(--danger);"></div>
+            <div class="bar-label">Expense</div>
+        </div>
+    `;
+
+    // Update Donut Chart
+    const donut = document.getElementById('category-donut');
+    const legend = document.getElementById('category-legend');
+
+    // Sort expenses
+    const sortedCats = Object.entries(categoryExpenses).sort((a, b) => b[1] - a[1]).slice(0, 5); // Top 5
+    let conicStr = '';
+    let currentDeg = 0;
+    const colors = ['#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6']; // Amber, Blue, Emerald, Red, Violet
+    let legendHtml = '';
+
+    sortedCats.forEach((item, index) => {
+        const [cat, amt] = item;
+        const percent = (amt / expense) * 100;
+        const deg = (percent / 100) * 360;
+        const color = colors[index % colors.length];
+
+        conicStr += `${color} ${currentDeg}deg ${currentDeg + deg}deg, `;
+        currentDeg += deg;
+
+        legendHtml += `<div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+            <div style="width:10px; height:10px; background:${color}; border-radius:50%;"></div>
+            <div>${cat} <span style="color:var(--text-secondary);">(${Math.round(percent)}%)</span></div>
+        </div>`;
+    });
+
+    // If no expense, gray ring
+    if (expense === 0) conicStr = 'var(--border-color) 0deg 360deg';
+    else conicStr = conicStr.slice(0, -2); // remove last comma
+
+    donut.style.background = `conic-gradient(${conicStr})`;
+    legend.innerHTML = legendHtml || '<div style="color:var(--text-secondary)">No expenses</div>';
+}
+
+// Ensure reports update when view switches
+const originalSwitchView = window.switchView;
+window.switchView = function (viewId, navEl) {
+    originalSwitchView(viewId, navEl);
+    if (viewId === 'view-reports') {
+        renderReports();
+    }
+}
+
+function loadDemoData() {
+    if (!confirm("This will replace current data with demo data. Continue?")) return;
+
+    const now = new Date();
+    const transactions = [
+        { id: 1, type: 'salary', amount: 50000, desc: 'Salary', date: new Date(now.getFullYear(), now.getMonth(), 1).toISOString() },
+        { id: 2, type: 'expense', amount: 12000, desc: 'Rent', date: new Date(now.getFullYear(), now.getMonth(), 3).toISOString() },
+        { id: 3, type: 'expense', amount: 2500, desc: 'Groceries', date: new Date(now.getFullYear(), now.getMonth(), 5).toISOString() },
+        { id: 4, type: 'expense', amount: 1500, desc: 'Dining Out', date: new Date(now.getFullYear(), now.getMonth(), 7).toISOString() },
+        { id: 5, type: 'expense', amount: 800, desc: 'Transport', date: new Date(now.getFullYear(), now.getMonth(), 8).toISOString() },
+        { id: 6, type: 'expense', amount: 3000, desc: 'Shopping', date: new Date(now.getFullYear(), now.getMonth(), 10).toISOString() },
+        { id: 7, type: 'lend', amount: 2000, desc: 'Lend to Rahul', date: new Date(now.getFullYear(), now.getMonth(), 12).toISOString(), friendId: 1 },
+        { id: 8, type: 'repayment', amount: 1000, desc: 'Rahul Returned', date: new Date(now.getFullYear(), now.getMonth(), 15).toISOString(), friendId: 1 },
+        { id: 9, type: 'expense', amount: 450, desc: 'Coffee', date: new Date(now.getFullYear(), now.getMonth(), 18).toISOString() },
+        { id: 10, type: 'expense', amount: 1200, desc: 'Groceries', date: new Date(now.getFullYear(), now.getMonth(), 20).toISOString() }
+    ];
+
+    STATE.transactions = transactions;
+    STATE.balance = 50000 - 12000 - 2500 - 1500 - 800 - 3000 - 2000 + 1000 - 450 - 1200; // Approx calc
+    STATE.friends = [{ id: 1, name: 'Rahul', balance: 1000 }];
+
+    saveData();
+    recalculateBalance(); // To be precise
+    renderDashboard();
+    renderReports();
+    alert("Demo data loaded!");
+}
+
 function handleLogout() {
     STATE.currentUser = null;
     localStorage.removeItem('debtTracker_session');

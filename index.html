@@ -199,6 +199,55 @@
                 </div>
             </div>
 
+            <!-- REPORTS VIEW -->
+            <div id="view-reports" class="view">
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h2 style="margin:0;">Reports</h2>
+                        <select id="reports-filter" onchange="renderReports()" style="width:auto; padding:8px;">
+                            <option value="this_month">This Month</option>
+                            <option value="last_month">Last Month</option>
+                            <option value="all">All Time</option>
+                        </select>
+                    </div>
+                    <div style="text-align:center; margin-bottom:20px; color:var(--text-secondary); font-size:0.9rem;"
+                        id="reports-date-display">
+                        <!-- Date Range -->
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-label">Income</div>
+                            <div class="stat-value text-success" id="report-income">₹0.00</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Expense</div>
+                            <div class="stat-value text-danger" id="report-expense">₹0.00</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Savings</div>
+                            <div class="stat-value" id="report-savings">₹0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Cash Flow</h2>
+                    <div id="bar-chart-container"
+                        style="height:150px; display:flex; gap:20px; justify-content:center; align-items:flex-end; padding-bottom:10px;">
+                        <!-- Bars injected by JS -->
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Spending by Category</h2>
+                    <div style="display:flex; justify-content:center; align-items:center; gap:24px; flex-wrap:wrap;">
+                        <div id="category-donut" class="donut-chart"></div>
+                        <div id="category-legend" style="font-size:0.85rem;"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- FRIENDS/DEBT VIEW -->
             <div id="view-friends" class="view">
                 <div class="card">
@@ -263,6 +312,16 @@
                         <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                     </svg></span>
                 <span>Friends</span>
+            </a>
+            <a href="#" class="nav-item" data-target="view-reports" onclick="switchView('view-reports', this)">
+                <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <line x1="18" y1="20" x2="18" y2="10" />
+                        <line x1="12" y1="20" x2="12" y2="4" />
+                        <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg></span>
+                <span>Reports</span>
             </a>
             <a href="#" class="nav-item" data-target="view-settings" onclick="switchView('view-settings', this)">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
