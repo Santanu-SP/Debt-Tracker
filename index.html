@@ -386,11 +386,9 @@
                     </div>
                 </div>
             </div>
-            <div style="display:flex; gap:12px; margin-top:20px;">
-                <button class="btn" style="background:#e5e7eb; color:#333;" onclick="closeModals()">Cancel</button>
-                <button class="btn"
-                    style="background:var(--bg-secondary); color:var(--text-primary); white-space:nowrap;"
-                    onclick="addTransaction(true)">Save & Add Another</button>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" onclick="closeModals()">Cancel</button>
+                <button class="btn btn-secondary" onclick="addTransaction(true)">Save & Add Another</button>
                 <button class="btn btn-primary" onclick="addTransaction()">Save</button>
             </div>
         </div>

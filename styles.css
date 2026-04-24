@@ -550,3 +550,39 @@ select:focus {
     display: block;
     animation: fadeIn 0.3s ease-out;
 }
+/* Mobile Fixes */
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.btn-secondary {
+    background: #e0e7ff;
+    color: var(--primary);
+}
+
+.btn-cancel {
+    background: #e5e7eb;
+    color: #333;
+}
+
+@media (max-width: 480px) {
+    .modal-actions {
+        flex-direction: column;
+    }
+
+    .modal-actions .btn {
+        width: 100%;
+        margin: 0;
+    }
+
+    /* Move FAB up to avoid nav overlap */
+    .fab {
+        bottom: 110px;
+    }
+    
+    .bottom-nav {
+        padding: 8px 16px; 
+    }
+}
