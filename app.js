@@ -648,7 +648,8 @@ async function settleFriendDebt(friendId, friendName, amount) {
 
 // --- STUDENT ALLOWANCE LOGIC ---
 async function saveSalaryConfig() {
-    const amount = parseFloat(document.getElementById('salary-input').value);
+    const val = document.getElementById('salary-input').value;
+    const amount = val === '' ? 0 : parseFloat(val);
     const date = parseInt(document.getElementById('salary-date').value);
 
     if (isNaN(amount) || isNaN(date)) return;
