@@ -18,28 +18,55 @@ const STATE = {
 
 // Global variables for session/runtime
 let selectedRoommates = [];
+let SERVER_MODE = false;
+const SERVER_URL = 'http://localhost:3000';
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
     checkSession();
 });
 
+// Check collaborative server availability
+async function checkServerHealth() {
+    try {
+        const res = await fetch(`${SERVER_URL}/api/health`);
+        const data = await res.json();
+        if (data.status === 'OK') {
+            SERVER_MODE = true;
+            console.log("Connected to PocketSafe collaborative server! MongoDB: " + data.database);
+            return true;
+        }
+    } catch (e) {
+        console.warn("Collaborative server offline. Falling back to local storage mode.");
+    }
+    SERVER_MODE = false;
+    return false;
+}
+
 // --- AUTH & SESSION ---
-function checkSession() {
+async function checkSession() {
+    await checkServerHealth();
+
     let session = null;
     try { session = JSON.parse(localStorage.getItem('debtTracker_session')); } catch (e) { }
     try { if (!session) session = JSON.parse(sessionStorage.getItem('debtTracker_session')); } catch (e) { }
 
     if (session && session.username) {
-        const users = JSON.parse(localStorage.getItem('debtTracker_users') || '[]');
-        const user = users.find(u => u.username === session.username);
+        if (SERVER_MODE) {
+            loginUser(session.username);
+        } else {
+            const users = JSON.parse(localStorage.getItem('debtTracker_users') || '[]');
+            const user = users.find(u => u.username === session.username);
 
-        if (user) {
-            loginUser(user.username);
-            return;
+            if (user) {
+                loginUser(user.username);
+                return;
+            }
+            showAuthView();
         }
+    } else {
+        showAuthView();
     }
-    showAuthView();
 }
 
 function showAuthView() {
@@ -66,12 +93,12 @@ function toggleAuthMode(mode) {
     }
 }
 
-function handleLogin() {
+async function handleLogin() {
     const usernameInput = document.getElementById('login-username');
     const passwordInput = document.getElementById('login-password');
     const rememberMe = document.getElementById('login-remember').checked;
 
-    const username = usernameInput.value.trim();
+    const username = usernameInput.value.trim().toLowerCase();
     const password = passwordInput.value;
 
     if (!username || !password) {
@@ -79,30 +106,56 @@ function handleLogin() {
         return;
     }
 
-    const users = JSON.parse(localStorage.getItem('debtTracker_users') || '[]');
-    const user = users.find(u => u.username === username && u.password === password);
-
-    if (user) {
-        if (rememberMe) {
-            localStorage.setItem('debtTracker_session', JSON.stringify({ username }));
-        } else {
-            sessionStorage.setItem('debtTracker_session', JSON.stringify({ username }));
-            localStorage.removeItem('debtTracker_session'); 
+    if (SERVER_MODE) {
+        try {
+            const res = await fetch(`${SERVER_URL}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                if (rememberMe) {
+                    localStorage.setItem('debtTracker_session', JSON.stringify({ username }));
+                } else {
+                    sessionStorage.setItem('debtTracker_session', JSON.stringify({ username }));
+                    localStorage.removeItem('debtTracker_session'); 
+                }
+                loginUser(username);
+                usernameInput.value = '';
+                passwordInput.value = '';
+            } else {
+                alert(data.error || "Invalid login");
+            }
+        } catch (e) {
+            alert("Error connecting to login server.");
         }
-        loginUser(username);
-        usernameInput.value = '';
-        passwordInput.value = '';
     } else {
-        alert("Invalid username or password");
+        const users = JSON.parse(localStorage.getItem('debtTracker_users') || '[]');
+        const user = users.find(u => u.username === username && u.password === password);
+
+        if (user) {
+            if (rememberMe) {
+                localStorage.setItem('debtTracker_session', JSON.stringify({ username }));
+            } else {
+                sessionStorage.setItem('debtTracker_session', JSON.stringify({ username }));
+                localStorage.removeItem('debtTracker_session'); 
+            }
+            loginUser(username);
+            usernameInput.value = '';
+            passwordInput.value = '';
+        } else {
+            alert("Invalid username or password");
+        }
     }
 }
 
-function handleRegister() {
+async function handleRegister() {
     const usernameInput = document.getElementById('reg-username');
     const passwordInput = document.getElementById('reg-password');
     const confirmInput = document.getElementById('reg-confirm-password');
 
-    const username = usernameInput.value.trim();
+    const username = usernameInput.value.trim().toLowerCase();
     const password = passwordInput.value;
     const confirm = confirmInput.value;
 
@@ -121,17 +174,36 @@ function handleRegister() {
         return;
     }
 
-    const users = JSON.parse(localStorage.getItem('debtTracker_users') || '[]');
-    if (users.find(u => u.username === username)) {
-        alert("Username already exists");
-        return;
+    if (SERVER_MODE) {
+        try {
+            const res = await fetch(`${SERVER_URL}/api/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert("Student profile created! You can now login.");
+                toggleAuthMode('login');
+            } else {
+                alert(data.error || "Registration failed");
+            }
+        } catch (e) {
+            alert("Error connecting to server.");
+        }
+    } else {
+        const users = JSON.parse(localStorage.getItem('debtTracker_users') || '[]');
+        if (users.find(u => u.username === username)) {
+            alert("Username already exists");
+            return;
+        }
+
+        users.push({ username, password });
+        localStorage.setItem('debtTracker_users', JSON.stringify(users));
+
+        alert("Account created! You can now login.");
+        toggleAuthMode('login');
     }
-
-    users.push({ username, password });
-    localStorage.setItem('debtTracker_users', JSON.stringify(users));
-
-    alert("Account created! You can now login.");
-    toggleAuthMode('login');
 }
 
 function handleLogout() {
@@ -144,14 +216,33 @@ function handleLogout() {
 function loginUser(username) {
     STATE.currentUser = username;
     loadData();
-    checkSalaryAutoAdd();
-    showAppView();
 }
 
 // --- DATA PERSISTENCE ---
-function loadData() {
+async function loadData() {
     if (!STATE.currentUser) return;
 
+    if (SERVER_MODE) {
+        try {
+            const res = await fetch(`${SERVER_URL}/api/user/state?username=${STATE.currentUser}`);
+            if (res.ok) {
+                const data = await res.json();
+                STATE.transactions = data.transactions || [];
+                STATE.friends = data.friends || [];
+                STATE.settings = data.settings || { salaryAmount: 3000, salaryDate: 1, lastSalaryMonth: null };
+                STATE.savingsGoal = data.savingsGoal || { title: "Set a savings goal! 🎯", target: 0, current: 0 };
+                STATE.balance = data.balance || 0;
+                
+                checkSalaryAutoAdd();
+                renderAll();
+                return;
+            }
+        } catch (e) {
+            console.error("Server fetch failed, using local fallback...", e);
+        }
+    }
+
+    // Local Storage Fallback
     const key = `debtTrackerData_${STATE.currentUser}`;
     const data = localStorage.getItem(key);
 
@@ -169,19 +260,26 @@ function loadData() {
         STATE.savingsGoal = parsed.savingsGoal || STATE.savingsGoal;
     }
     recalculateBalance();
+    checkSalaryAutoAdd();
+    renderAll();
 }
 
-function saveData() {
+async function saveData() {
     if (!STATE.currentUser) return;
 
-    const key = `debtTrackerData_${STATE.currentUser}`;
-    localStorage.setItem(key, JSON.stringify({
-        transactions: STATE.transactions,
-        friends: STATE.friends,
-        settings: STATE.settings,
-        savingsGoal: STATE.savingsGoal
-    }));
-    renderAll();
+    if (!SERVER_MODE) {
+        const key = `debtTrackerData_${STATE.currentUser}`;
+        localStorage.setItem(key, JSON.stringify({
+            transactions: STATE.transactions,
+            friends: STATE.friends,
+            settings: STATE.settings,
+            savingsGoal: STATE.savingsGoal
+        }));
+        renderAll();
+    } else {
+        // Transactions endpoint handles edits, just re-load state package
+        await loadData();
+    }
 }
 
 function recalculateBalance() {
@@ -232,7 +330,6 @@ function updateDailyDial() {
 
     const walletBalance = STATE.balance;
 
-    // Daily safe-to-spend limit formula
     let safeToSpend = 0;
     if (remainingDays > 0) {
         safeToSpend = (walletBalance - savingsNeeded) / remainingDays;
@@ -255,7 +352,6 @@ function updateDailyDial() {
         dial.style.background = `conic-gradient(var(--primary) 0% ${percent}%, var(--accent) ${percent}%, var(--border-color) ${percent}% 100%)`;
     }
 
-    // Display Alert Warning if wallet is lower than what's needed for the active goal
     const warningAlert = document.getElementById('quick-settlement-alert');
     if (warningAlert) {
         if (walletBalance < savingsNeeded) {
@@ -304,7 +400,7 @@ function updateSavingsGoalUI() {
     }
 }
 
-function saveSavingsGoal() {
+async function saveSavingsGoal() {
     const titleInput = document.getElementById('goal-title-input');
     const targetInput = document.getElementById('goal-target-input');
 
@@ -313,6 +409,25 @@ function saveSavingsGoal() {
 
     if (!title || isNaN(target) || target < 0) {
         alert("Please enter valid goal details.");
+        return;
+    }
+
+    if (SERVER_MODE) {
+        try {
+            const res = await fetch(`${SERVER_URL}/api/user/goal`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: STATE.currentUser, title, target })
+            });
+            if (res.ok) {
+                alert("Savings goal updated!");
+                await loadData();
+            } else {
+                alert("Failed to update savings goal.");
+            }
+        } catch (e) {
+            alert("Server connection error.");
+        }
         return;
     }
 
@@ -326,7 +441,7 @@ function saveSavingsGoal() {
     saveData();
 }
 
-function depositToSavings() {
+async function depositToSavings() {
     const amtInput = document.getElementById('goal-deposit-input');
     const amount = parseFloat(amtInput.value);
 
@@ -340,9 +455,33 @@ function depositToSavings() {
         return;
     }
 
+    if (SERVER_MODE) {
+        try {
+            const targetTitle = STATE.savingsGoal ? STATE.savingsGoal.title : "Savings Goal";
+            const res = await fetch(`${SERVER_URL}/api/transactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: STATE.currentUser,
+                    desc: `Deposit to: ${targetTitle}`,
+                    amount: amount,
+                    type: 'savings_deposit'
+                })
+            });
+            if (res.ok) {
+                amtInput.value = '';
+                await loadData();
+                alert(`Deposited ${formatCurrency(amount)} into savings goal!`);
+            } else {
+                alert("Failed to deposit to savings goal.");
+            }
+        } catch (e) {
+            alert("Server connection error.");
+        }
+        return;
+    }
+
     const targetTitle = STATE.savingsGoal ? STATE.savingsGoal.title : "Savings Goal";
-    
-    // Log saving transaction
     STATE.transactions.unshift({
         id: Date.now(),
         date: new Date().toISOString(),
@@ -399,11 +538,56 @@ function toggleRoommateBubble(id) {
 
 // --- 1-TAP QUICK SPENDING ACTIONS ---
 
-function quickLogTemplate(desc, amount) {
+async function quickLogTemplate(desc, amount) {
     if (isNaN(amount) || amount <= 0) return;
 
+    if (SERVER_MODE) {
+        const txData = {
+            username: STATE.currentUser,
+            desc: desc,
+            amount: amount,
+            type: selectedRoommates.length > 0 ? 'split' : 'expense'
+        };
+
+        if (selectedRoommates.length > 0) {
+            const involvedUsernames = selectedRoommates.map(fid => {
+                const f = STATE.friends.find(fr => fr.id === fid);
+                return f ? f.name : null;
+            }).filter(Boolean);
+
+            const total = involvedUsernames.length + 1;
+            txData.desc = `${desc} (Split)`;
+            txData.splitDetails = {
+                totalParticipants: total,
+                amountPerPerson: amount / total,
+                involvedUsernames,
+                includedMe: true
+            };
+        }
+
+        try {
+            const res = await fetch(`${SERVER_URL}/api/transactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(txData)
+            });
+            if (res.ok) {
+                selectedRoommates = [];
+                const quickAmtInput = document.getElementById('quick-amount');
+                if (quickAmtInput) quickAmtInput.value = '';
+                await loadData();
+            } else {
+                const data = await res.json();
+                alert(data.error || "Failed to split transaction");
+            }
+        } catch (e) {
+            alert("Error communicating with server.");
+        }
+        return;
+    }
+
+    // Local Storage Fallback
     if (selectedRoommates.length > 0) {
-        // Splitting 1-Click Action
         const participants = selectedRoommates.length + 1;
         const splitAmount = amount / participants;
 
@@ -425,7 +609,6 @@ function quickLogTemplate(desc, amount) {
             }
         });
     } else {
-        // Personal Spend 1-Click Action
         STATE.transactions.unshift({
             id: Date.now(),
             date: new Date().toISOString(),
@@ -457,7 +640,7 @@ function handleQuickAdd() {
 
 // --- DETAILED TRANSACTION SYSTEM ---
 
-function addTransaction() {
+async function addTransaction() {
     const descInput = document.getElementById('t-desc');
     const amountInput = document.getElementById('t-amount');
     const typeInput = document.getElementById('t-type');
@@ -472,6 +655,57 @@ function addTransaction() {
         return;
     }
 
+    if (SERVER_MODE) {
+        const selectedFriend = friendInput.options[friendInput.selectedIndex]?.text;
+        const txData = {
+            username: STATE.currentUser,
+            desc,
+            amount,
+            type,
+            friend: (type === 'lend' || type === 'repayment') ? selectedFriend : null
+        };
+
+        if (type === 'split') {
+            const checkboxes = document.querySelectorAll('#split-friends-list input[type="checkbox"]:checked');
+            const involvedUsernames = Array.from(checkboxes).map(cb => cb.value);
+            const includeMe = document.getElementById('split-include-me').checked;
+            const total = involvedUsernames.length + (includeMe ? 1 : 0);
+
+            if (total === 0) {
+                alert("Please select at least one roommate to split with.");
+                return;
+            }
+
+            txData.splitDetails = {
+                totalParticipants: total,
+                amountPerPerson: amount / total,
+                involvedUsernames,
+                includedMe: includeMe
+            };
+        }
+
+        try {
+            const res = await fetch(`${SERVER_URL}/api/transactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(txData)
+            });
+            if (res.ok) {
+                descInput.value = '';
+                amountInput.value = '';
+                closeModals();
+                await loadData();
+            } else {
+                const data = await res.json();
+                alert(data.error || "Failed to add transaction");
+            }
+        } catch (e) {
+            alert("Error sending transaction to server.");
+        }
+        return;
+    }
+
+    // Local Fallback Mode
     const transaction = {
         id: Date.now(),
         date: new Date().toISOString(),
@@ -526,22 +760,43 @@ function addTransaction() {
     recalculateBalance();
     saveData();
 
-    // Reset fields & dismiss bottom sheet
     descInput.value = '';
     amountInput.value = '';
     closeModals();
 }
 
-function addFriend() {
+async function addFriend() {
     const nameInput = document.getElementById('f-name');
-    const name = nameInput.value.trim();
+    const name = nameInput.value.trim().toLowerCase();
 
     if (!name) return;
 
+    if (SERVER_MODE) {
+        try {
+            const res = await fetch(`${SERVER_URL}/api/friends/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: STATE.currentUser, friendUsername: name })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                nameInput.value = '';
+                closeModals();
+                await loadData();
+            } else {
+                alert(data.error || "Could not link roommate");
+            }
+        } catch (e) {
+            alert("Error linking roommate with server.");
+        }
+        return;
+    }
+
+    // Local storage mode friend addition
     const newFriend = {
         id: Date.now(),
         name: name,
-        balance: 0 // Positive = they owe user
+        balance: 0 
     };
 
     STATE.friends.push(newFriend);
@@ -558,9 +813,35 @@ function updateFriendDebt(friendId, amountAdded) {
     }
 }
 
-function settleFriendDebt(friendId, friendName, amount) {
+async function settleFriendDebt(friendId, friendName, amount) {
     if (!confirm(`Mark ${friendName}'s debt of ${formatCurrency(amount)} as fully settled?`)) return;
 
+    if (SERVER_MODE) {
+        try {
+            const res = await fetch(`${SERVER_URL}/api/transactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: friendName, 
+                    desc: `Settle with ${STATE.currentUser}`,
+                    amount: amount,
+                    type: 'repayment',
+                    friend: STATE.currentUser 
+                })
+            });
+            if (res.ok) {
+                await loadData();
+            } else {
+                const data = await res.json();
+                alert(data.error || "Failed to settle debt on server");
+            }
+        } catch (e) {
+            alert("Server connection error during settlement.");
+        }
+        return;
+    }
+
+    // Local storage settlement
     STATE.transactions.unshift({
         id: Date.now(),
         date: new Date().toISOString(),
@@ -577,26 +858,79 @@ function settleFriendDebt(friendId, friendName, amount) {
 
 // --- STUDENT ALLOWANCE LOGIC ---
 
-function saveSalaryConfig() {
+async function saveSalaryConfig() {
     const amount = parseFloat(document.getElementById('salary-input').value);
     const date = parseInt(document.getElementById('salary-date').value);
 
     if (isNaN(amount) || isNaN(date)) return;
+
+    if (SERVER_MODE) {
+        try {
+            const res = await fetch(`${SERVER_URL}/api/user/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: STATE.currentUser,
+                    salaryAmount: amount,
+                    salaryDate: date
+                })
+            });
+            if (res.ok) {
+                alert("Allowance settings saved!");
+                await loadData();
+            } else {
+                alert("Failed to save allowance settings.");
+            }
+        } catch (e) {
+            alert("Server connection error.");
+        }
+        return;
+    }
 
     STATE.settings.salaryAmount = amount;
     STATE.settings.salaryDate = date;
 
     alert("Allowance settings saved!");
     saveData();
-    checkSalaryAutoAdd(); 
 }
 
-function checkSalaryAutoAdd() {
+async function checkSalaryAutoAdd() {
     const today = new Date();
     const currentMonthStr = `${today.getFullYear()}-${today.getMonth() + 1}`; 
 
     if (STATE.settings.lastSalaryMonth !== currentMonthStr && STATE.settings.salaryAmount > 0) {
         if (today.getDate() >= STATE.settings.salaryDate) {
+            if (SERVER_MODE) {
+                try {
+                    await fetch(`${SERVER_URL}/api/transactions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: STATE.currentUser,
+                            desc: 'Monthly Allowance (Auto Received)',
+                            amount: STATE.settings.salaryAmount,
+                            type: 'salary'
+                        })
+                    });
+
+                    await fetch(`${SERVER_URL}/api/user/settings`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: STATE.currentUser,
+                            lastSalaryMonth: currentMonthStr
+                        })
+                    });
+
+                    await loadData();
+                    alert(`Allowance of ${formatCurrency(STATE.settings.salaryAmount)} added automatically!`);
+                } catch (e) {
+                    console.error("Auto add allowance server sync failed", e);
+                }
+                return;
+            }
+
+            // Local mode
             STATE.transactions.unshift({
                 id: Date.now(),
                 date: new Date().toISOString(),
@@ -655,11 +989,10 @@ function renderReports() {
     STATE.transactions.forEach(t => {
         const tDate = new Date(t.date);
         if (tDate >= startDate && tDate <= endDate) {
-            if (t.type === 'income' || t.type === 'salary' || t.type === 'repayment') {
+            if (t.type === 'income' || t.type === 'salary' || (t.type === 'repayment' && t.friend === STATE.currentUser)) {
                 income += t.amount;
-            } else if (t.type === 'expense' || t.type === 'split' || t.type === 'savings_deposit' || t.type === 'lend') {
+            } else if (t.type === 'expense' || t.type === 'split' || t.type === 'savings_deposit' || t.type === 'lend' || (t.type === 'repayment' && t.payer === STATE.currentUser)) {
                 let actualCost = t.amount;
-                // For split details, only count the user's portion
                 if (t.type === 'split' && t.splitDetails) {
                     actualCost = t.splitDetails.amountPerPerson;
                 }
@@ -724,61 +1057,26 @@ function renderReports() {
     legend.innerHTML = legendHtml || '<div style="color:var(--text-secondary); font-weight:600;">No spending logged</div>';
 }
 
-// --- NAVIGATION & ROUTING ---
-function switchView(viewId, navEl) {
-    document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
-    const targetView = document.getElementById(viewId);
-    if (targetView) targetView.classList.add('active');
-
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    if (navEl) navEl.classList.add('active');
-
-    const fab = document.getElementById('add-transaction-btn');
-    if (fab) {
-        if (viewId === 'view-dashboard') fab.style.display = 'flex';
-        else fab.style.display = 'none';
+// Hook router listener
+const originalSwitchView = window.switchView;
+window.switchView = function (viewId, navEl) {
+    if (typeof originalSwitchView === 'function') {
+        originalSwitchView(viewId, navEl);
     }
-
     if (viewId === 'view-reports') {
         renderReports();
     }
 }
 
-function closeModals() {
-    document.querySelectorAll('.modal-overlay').forEach(el => el.style.display = 'none');
-}
-
-function showTransactionModal(preSelectedType) {
-    const modal = document.getElementById('modal-transaction');
-    modal.style.display = 'block';
-
-    const typeSelect = document.getElementById('t-type');
-    if (preSelectedType) {
-        typeSelect.value = preSelectedType;
-    }
-
-    function handleTypeChange() {
-        const val = typeSelect.value;
-        document.getElementById('friend-selector-group').style.display = (val === 'lend' || val === 'repayment') ? 'block' : 'none';
-        document.getElementById('split-selector-group').style.display = (val === 'split') ? 'block' : 'none';
-
-        if (val === 'split') {
-            refreshSplitList();
-        }
-    }
-
-    typeSelect.onchange = handleTypeChange;
-    handleTypeChange();
-}
-
-function showAddFriendModal() {
-    document.getElementById('modal-friend').style.display = 'block';
-}
-
 // --- STUDENT DEMO SETUP ---
 
-function loadDemoData() {
+async function loadDemoData() {
     if (!confirm("This will replace current data with student demo data. Continue?")) return;
+
+    if (SERVER_MODE) {
+        alert("Demo data is only supported in offline Local Storage mode. When connected to a server, you can link with actual roommates!");
+        return;
+    }
 
     const now = new Date();
     
@@ -793,9 +1091,9 @@ function loadDemoData() {
     };
 
     STATE.friends = [
-        { id: 1, name: "Rahul Roomie", balance: 180 },
-        { id: 2, name: "Amit Btech", balance: 0 },
-        { id: 3, name: "Sneha Hostel A", balance: -50 }
+        { id: 1, name: "rahul", balance: 180 },
+        { id: 2, name: "amit", balance: 0 },
+        { id: 3, name: "sneha", balance: -50 }
     ];
 
     STATE.transactions = [
@@ -1022,9 +1320,8 @@ function exportHistoryToCSV() {
         const desc = `"${t.desc.replace(/"/g, '""')}"`;
 
         let friendName = "";
-        if (t.friendId) {
-            const friend = STATE.friends.find(f => f.id === t.friendId);
-            if (friend) friendName = friend.name;
+        if (t.friend) {
+            friendName = t.friend;
         } else if (t.splitDetails) {
             friendName = "Split Group";
         }
@@ -1123,11 +1420,62 @@ function renderSplitFriendList() {
         div.style.marginBottom = '8px';
 
         div.innerHTML = `
-            <input type="checkbox" id="split-friend-${f.id}" value="${f.id}" style="width:18px; height:18px; margin-right:8px; accent-color: var(--primary);">
+            <input type="checkbox" id="split-friend-${f.id}" value="${f.name}" style="width:18px; height:18px; margin-right:8px; accent-color: var(--primary);">
             <label for="split-friend-${f.id}" style="margin:0;">${f.name}</label>
         `;
         container.appendChild(div);
     });
+}
+
+// --- NAVIGATION & ROUTING ---
+function switchView(viewId, navEl) {
+    document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+    const targetView = document.getElementById(viewId);
+    if (targetView) targetView.classList.add('active');
+
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    if (navEl) navEl.classList.add('active');
+
+    const fab = document.getElementById('add-transaction-btn');
+    if (fab) {
+        if (viewId === 'view-dashboard') fab.style.display = 'flex';
+        else fab.style.display = 'none';
+    }
+
+    if (viewId === 'view-reports') {
+        renderReports();
+    }
+}
+
+function closeModals() {
+    document.querySelectorAll('.modal-overlay').forEach(el => el.style.display = 'none');
+}
+
+function showTransactionModal(preSelectedType) {
+    const modal = document.getElementById('modal-transaction');
+    modal.style.display = 'block';
+
+    const typeSelect = document.getElementById('t-type');
+    if (preSelectedType) {
+        typeSelect.value = preSelectedType;
+    }
+
+    function handleTypeChange() {
+        const val = typeSelect.value;
+        document.getElementById('friend-selector-group').style.display = (val === 'lend' || val === 'repayment') ? 'block' : 'none';
+        document.getElementById('split-selector-group').style.display = (val === 'split') ? 'block' : 'none';
+
+        if (val === 'split') {
+            refreshSplitList();
+        }
+    }
+
+    typeSelect.onchange = handleTypeChange;
+    handleTypeChange();
+}
+
+function showAddFriendModal() {
+    document.getElementById('modal-friend').style.display = 'block';
 }
 
 function formatCurrency(num) {
