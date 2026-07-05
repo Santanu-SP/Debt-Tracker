@@ -1350,6 +1350,53 @@ async function clearAllData() {
     }
 }
 
+let selectedPhotoBase64 = '';
+
+function handleImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 120;
+            const MAX_HEIGHT = 120;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+                if (width > MAX_WIDTH) {
+                    height *= MAX_WIDTH / width;
+                    width = MAX_WIDTH;
+                }
+            } else {
+                if (height > MAX_HEIGHT) {
+                    width *= MAX_HEIGHT / height;
+                    height = MAX_HEIGHT;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Compress to JPEG with 70% quality
+            selectedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.7);
+            
+            // Update preview
+            const preview = document.getElementById('profile-avatar-preview');
+            if (preview) {
+                preview.innerHTML = `<img src="${selectedPhotoBase64}" style="width:100%; height:100%; object-fit:cover;">`;
+            }
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
 async function showProfileModal() {
     if (!STATE.currentUser) return;
     const username = STATE.currentUser;
@@ -1358,10 +1405,25 @@ async function showProfileModal() {
         const userDoc = await db.collection('users').doc(username).get();
         if (userDoc.exists) {
             const data = userDoc.data();
+            
+            // Set account info
+            const currentUserObj = auth.currentUser;
+            document.getElementById('profile-email-display').textContent = currentUserObj ? currentUserObj.email : 'Local Account';
+            document.getElementById('profile-id-display').textContent = username;
+
             document.getElementById('profile-username').value = data.customUsername || '';
             document.getElementById('profile-phone').value = data.phone || '';
             document.getElementById('profile-room').value = data.roomNo || '';
-            document.getElementById('profile-photo').value = data.photoUrl || '';
+            
+            selectedPhotoBase64 = data.photoUrl || '';
+            const preview = document.getElementById('profile-avatar-preview');
+            if (preview) {
+                if (selectedPhotoBase64) {
+                    preview.innerHTML = `<img src="${selectedPhotoBase64}" style="width:100%; height:100%; object-fit:cover;">`;
+                } else {
+                    preview.textContent = '👤';
+                }
+            }
             
             document.getElementById('modal-profile').style.display = 'flex';
         }
@@ -1377,7 +1439,6 @@ async function saveProfile() {
     const newUsername = document.getElementById('profile-username').value.trim().toLowerCase();
     const phone = document.getElementById('profile-phone').value.trim();
     const room = document.getElementById('profile-room').value.trim();
-    const photo = document.getElementById('profile-photo').value.trim();
 
     // Regular Expression validation for username (alphanumeric and underscores only)
     if (newUsername !== '') {
@@ -1409,7 +1470,7 @@ async function saveProfile() {
             customUsername: newUsername,
             phone: phone,
             roomNo: room,
-            photoUrl: photo
+            photoUrl: selectedPhotoBase64
         });
         alert("Profile details updated successfully!");
         closeModals();
