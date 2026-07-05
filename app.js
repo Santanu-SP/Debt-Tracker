@@ -208,6 +208,8 @@ async function loadData() {
         STATE.settings = userData.settings || { salaryAmount: 0, salaryDate: 1, lastSalaryMonth: null, onboarded: false };
         STATE.savingsGoal = userData.savingsGoal || { title: "Set a savings goal! 🎯", target: 0 };
 
+        document.getElementById('user-display-name').textContent = username;
+
         if (STATE.settings.onboarded !== true) {
             showOnboardingModal();
             return;
@@ -1303,5 +1305,34 @@ async function submitOnboarding() {
         await loadData();
     } catch (e) {
         alert("Setup failed: " + e.message);
+    }
+}
+
+async function clearAllData() {
+    if (!confirm("Are you sure you want to delete all user settings and transactions? This cannot be undone.")) return;
+
+    try {
+        const username = STATE.currentUser;
+        const batch = db.batch();
+
+        // 1. Delete transactions where payer == username
+        const txsSnap = await db.collection('transactions').where('payer', '==', username).get();
+        txsSnap.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+        // 2. Reset user settings & friends list
+        const userRef = db.collection('users').doc(username);
+        batch.update(userRef, {
+            settings: { salaryAmount: 0, salaryDate: 1, lastSalaryMonth: null, onboarded: false },
+            savingsGoal: { title: "Set a savings goal! 🎯", target: 0 },
+            friends: []
+        });
+
+        await batch.commit();
+        alert("Data reset successfully!");
+        location.reload();
+    } catch (e) {
+        alert("Reset failed: " + e.message);
     }
 }
