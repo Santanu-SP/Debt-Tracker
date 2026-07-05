@@ -61,6 +61,59 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected' });
 });
 
+// Fetch server configurations (Google client ID, etc.)
+app.get('/api/config', (req, res) => {
+    res.json({
+        googleClientId: process.env.GOOGLE_CLIENT_ID || ''
+    });
+});
+
+// User Google Authentication
+app.post('/api/auth/google', async (req, res) => {
+    try {
+        const { token } = req.body;
+        if (!token) {
+            return res.status(400).json({ error: 'OAuth token is required' });
+        }
+
+        // Verify the ID token using Google's public tokeninfo endpoint
+        const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+        if (!verifyRes.ok) {
+            return res.status(400).json({ error: 'Invalid Google login credentials' });
+        }
+
+        const payload = await verifyRes.json();
+        const email = payload.email;
+        if (!email) {
+            return res.status(400).json({ error: 'Email scope not provided by Google' });
+        }
+
+        // Generate username: alphanumeric lowercase email prefix
+        let username = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        let user = await User.findOne({ username });
+        if (user && user.password !== 'google_auth') {
+            // Username collides with a standard user, fallback to full email
+            username = email.toLowerCase();
+            user = await User.findOne({ username });
+        }
+
+        if (!user) {
+            // Auto register Google user
+            user = new User({
+                username,
+                password: 'google_auth',
+                friends: []
+            });
+            await user.save();
+        }
+
+        res.json({ success: true, username: user.username });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // User Registration
 app.post('/api/auth/register', async (req, res) => {
     try {

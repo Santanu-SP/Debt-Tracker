@@ -46,6 +46,7 @@ async function checkServerHealth() {
 // --- AUTH & SESSION ---
 async function checkSession() {
     await checkServerHealth();
+    await loadServerConfig();
 
     let session = null;
     try { session = JSON.parse(localStorage.getItem('debtTracker_session')); } catch (e) { }
@@ -66,6 +67,69 @@ async function checkSession() {
         }
     } else {
         showAuthView();
+    }
+}
+
+// Fetch server-side dynamic configurations
+async function loadServerConfig() {
+    if (SERVER_MODE) {
+        try {
+            const res = await fetch(`${SERVER_URL}/api/config`);
+            if (res.ok) {
+                const config = await res.json();
+                if (config.googleClientId) {
+                    initGoogleSignIn(config.googleClientId);
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to fetch configurations from server.", e);
+        }
+    }
+}
+
+// Initialize Google Sign-in button rendering
+function initGoogleSignIn(clientId) {
+    const container = document.getElementById('google-signin-container');
+    const btnNode = document.getElementById('google-signin-btn');
+    if (!container || !btnNode) return;
+
+    // Show button container
+    container.style.display = 'block';
+
+    // Initialize GIS Client SDK
+    google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCredentialResponse
+    });
+
+    // Render native Google Sign-in button
+    google.accounts.id.renderButton(
+        btnNode,
+        { theme: "outline", size: "large", width: 280 }
+    );
+}
+
+// Callback when Google auth popup completes
+async function handleGoogleCredentialResponse(response) {
+    const credentialToken = response.credential;
+    if (!credentialToken) return;
+
+    try {
+        const res = await fetch(`${SERVER_URL}/api/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: credentialToken })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            // Keep user permanently logged in matching default checkbox behavior
+            localStorage.setItem('debtTracker_session', JSON.stringify({ username: data.username }));
+            loginUser(data.username);
+        } else {
+            alert(data.error || "Google login failed");
+        }
+    } catch (e) {
+        alert("Server error verifying Google token.");
     }
 }
 

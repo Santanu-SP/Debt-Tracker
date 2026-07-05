@@ -8,6 +8,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css">
     <meta name="theme-color" content="#6366f1">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body>
@@ -41,6 +42,16 @@
                         </label>
                     </div>
                     <button class="btn btn-primary" onclick="handleLogin()">Login</button>
+                    
+                    <!-- Google Sign-In Button Container -->
+                    <div id="google-signin-container" style="display: none; margin-top: 16px;">
+                        <div style="text-align: center; color: var(--text-secondary); font-size: 0.75rem; font-weight: 700; margin-bottom: 12px; position: relative;">
+                            <span style="background: var(--card-bg); padding: 0 8px; position: relative; z-index: 2;">OR</span>
+                            <div style="position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--border-color); z-index: 1;"></div>
+                        </div>
+                        <div id="google-signin-btn" style="display: flex; justify-content: center;"></div>
+                    </div>
+
                     <p style="text-align: center; margin-top: 20px; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">
                         First time? <a href="#" onclick="toggleAuthMode('register')" style="color: var(--primary); text-decoration: none;">Create student profile</a>
                     </p>
