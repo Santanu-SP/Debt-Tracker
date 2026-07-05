@@ -22,12 +22,13 @@ let selectedRoommates = [];
 // --- FIREBASE CONFIGURATION ---
 // Replace these placeholders with your actual web app config from Firebase Console
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDA-aN1GCjWpyjZUX2oVufT42nTg4cZJ5A",
+  authDomain: "pocket-saver-4a8e9.firebaseapp.com",
+  projectId: "pocket-saver-4a8e9",
+  storageBucket: "pocket-saver-4a8e9.firebasestorage.app",
+  messagingSenderId: "694005609776",
+  appId: "1:694005609776:web:155aa4933f9fc3b4f244f5",
+  measurementId: "G-7GKHM1VWE7"
 };
 
 // Initialize Firebase SDK
