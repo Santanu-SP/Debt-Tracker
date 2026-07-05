@@ -1,6 +1,6 @@
 {
-  "name": "DebtTracker",
-  "short_name": "DebtTracker",
+  "name": "Pocket Safe",
+  "short_name": "Pocket Safe",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",

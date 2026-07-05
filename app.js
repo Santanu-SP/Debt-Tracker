@@ -1444,38 +1444,61 @@ async function saveProfile() {
     const phone = document.getElementById('profile-phone').value.trim();
     const room = document.getElementById('profile-room').value.trim();
 
-    // Regular Expression validation for username (alphanumeric and underscores only)
     if (newUsername !== '') {
         const usernameRegex = /^[a-z0-9_]+$/;
         if (!usernameRegex.test(newUsername)) {
             alert("Username must only contain lowercase letters, numbers, and underscores.");
             return;
         }
+    }
 
-        try {
-            // Check if this custom username is already taken by another user
+    try {
+        const userDoc = await db.collection('users').doc(username).get();
+        const userData = userDoc.data() || {};
+        
+        let customUsername = userData.customUsername || '';
+        let changesCount = userData.usernameChangesCount || 0;
+        let lastChangeStr = userData.lastUsernameChangeDate || null;
+        
+        let updatePayload = {
+            phone: phone,
+            roomNo: room,
+            photoUrl: selectedPhotoBase64
+        };
+
+        if (newUsername !== '' && newUsername !== customUsername) {
+            if (changesCount >= 3) {
+                alert("You have reached the maximum limit of 3 lifetime username changes.");
+                return;
+            }
+            if (lastChangeStr) {
+                const lastChange = new Date(lastChangeStr);
+                const now = new Date();
+                const diffTime = Math.abs(now - lastChange);
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
+                if (diffDays < 30) {
+                    alert(`You can only change your username once every 30 days. Please try again in ${30 - diffDays} days.`);
+                    return;
+                }
+            }
+
             const querySnap = await db.collection('users').where('customUsername', '==', newUsername).get();
             if (!querySnap.empty) {
-                // If it is taken, ensure it's not taken by the current user themselves
                 const takenByOther = querySnap.docs.some(doc => doc.id !== username);
                 if (takenByOther) {
                     alert("This username is already taken by another user. Please pick a different one!");
                     return;
                 }
             }
-        } catch (e) {
-            alert("Validation failed: " + e.message);
-            return;
-        }
-    }
 
-    try {
-        await db.collection('users').doc(username).update({
-            customUsername: newUsername,
-            phone: phone,
-            roomNo: room,
-            photoUrl: selectedPhotoBase64
-        });
+            updatePayload.customUsername = newUsername;
+            updatePayload.usernameChangesCount = changesCount + 1;
+            updatePayload.lastUsernameChangeDate = new Date().toISOString();
+        } else if (newUsername === customUsername) {
+            updatePayload.customUsername = newUsername; // Keep existing if same
+        }
+
+        await db.collection('users').doc(username).update(updatePayload);
         alert("Profile details updated successfully!");
         closeModals();
         await loadData();
