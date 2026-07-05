@@ -18,8 +18,18 @@
     <!-- App Shell Wrapper (Simulator on Desktop, Full-bleed on Mobile) -->
     <div class="app-shell">
 
+            <!-- SPLASH VIEW -->
+            <div id="splash-view" class="splash-container">
+                <img src="logo.png" alt="PocketSafe Logo" class="splash-logo">
+                <div class="logo-text-lg">
+                    <span class="word-pocket">Pocket</span><span class="word-safe">Safe</span>
+                </div>
+                <p style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 500;">Collaborative Budget &amp; Split Tracker</p>
+                <div class="splash-spinner"></div>
+            </div>
+
             <!-- AUTH VIEW (Login/Register) -->
-            <div id="auth-view" style="display: block; padding: 30px 20px; overflow-y: auto; height: 100%;">
+            <div id="auth-view" style="display: none; padding: 30px 20px; overflow-y: auto; height: 100%;">
                 <header style="flex-direction: column; text-align: center; margin-bottom: 30px; gap: 8px;">
                     <img src="logo.png" alt="PocketSafe Logo"
                         style="width: 72px; height: 72px; border-radius: 20px; box-shadow: var(--shadow-lg); margin: 0 auto;">

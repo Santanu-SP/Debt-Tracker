@@ -640,7 +640,38 @@ input::placeholder { color: var(--text-muted); font-weight: 400; }
 /* ── Misc ───────────────────────────────────────────────────── */
 .stat-label-sm { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; }
 
+/* ── Splash Screen ──────────────────────────────────────────── */
+.splash-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 30px 20px;
+    text-align: center;
+    gap: 20px;
+    background-color: var(--bg-color);
+}
+.splash-logo {
+    width: 80px;
+    height: 80px;
+    border-radius: 22px;
+    box-shadow: var(--shadow-lg);
+    animation: pulse 1.8s infinite ease-in-out;
+}
+.splash-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-top: 10px;
+}
+
 /* ── Animations ─────────────────────────────────────────────── */
 @keyframes fadeIn    { from { opacity: 0; } to { opacity: 1; } }
 @keyframes viewFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes slideUp   { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes spin      { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes pulse     { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.85; } }

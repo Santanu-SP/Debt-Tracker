@@ -63,6 +63,8 @@ function initAuthObserver() {
 
 // --- AUTH & SESSION ---
 function showAuthView() {
+    const splash = document.getElementById('splash-view');
+    if (splash) splash.style.display = 'none';
     document.getElementById('auth-view').style.display = 'block';
     document.getElementById('app-view').style.display = 'none';
     document.getElementById('login-form').style.display = 'block';
@@ -70,6 +72,8 @@ function showAuthView() {
 }
 
 function showAppView() {
+    const splash = document.getElementById('splash-view');
+    if (splash) splash.style.display = 'none';
     document.getElementById('auth-view').style.display = 'none';
     document.getElementById('app-view').style.display = 'flex';
     initUI(); 
