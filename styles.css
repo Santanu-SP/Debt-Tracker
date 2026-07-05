@@ -641,39 +641,120 @@ input::placeholder { color: var(--text-muted); font-weight: 400; }
 /* ── Misc ───────────────────────────────────────────────────── */
 .stat-label-sm { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; }
 
-/* ── Splash Screen ──────────────────────────────────────────── */
-.splash-container {
+/* ── Splash Screen ───────────────────────────────────────────── */
+.splash-screen {
+    position: absolute;
+    inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100%;
-    padding: 30px 20px;
-    text-align: center;
-    gap: 20px;
-    background-color: var(--bg-color);
+    background: var(--bg-color);
+    z-index: 9999;
+    overflow: hidden;
+    gap: 24px;
+}
+.splash-screen.splash-exit {
+    animation: splashFadeOut 0.5s ease-in forwards;
+}
+
+/* Pulsing rings behind the logo */
+.splash-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid var(--primary);
+    opacity: 0;
+    animation: ringExpand 2.4s ease-out infinite;
+}
+.splash-ring.r1 { width: 140px; height: 140px; animation-delay: 0s; }
+.splash-ring.r2 { width: 140px; height: 140px; animation-delay: 0.8s; }
+.splash-ring.r3 { width: 140px; height: 140px; animation-delay: 1.6s; }
+
+/* Logo wrapper clips the rounded corners cleanly */
+.splash-logo-wrap {
+    position: relative;
+    width: 110px;
+    height: 110px;
+    flex-shrink: 0;
+    animation: logoEntrance 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.splash-logo-glow {
+    position: absolute;
+    inset: -10px;
+    border-radius: 38px;
+    background: radial-gradient(circle, rgba(90,103,216,0.4) 0%, transparent 70%);
+    animation: glowPulse 2s ease-in-out infinite;
 }
 .splash-logo {
     width: 110px;
     height: 110px;
     border-radius: 28px;
-    box-shadow: 0 12px 40px rgba(26,107,219,0.35);
+    overflow: hidden;
     object-fit: cover;
-    animation: pulse 1.8s infinite ease-in-out;
-}
-.splash-spinner {
-    width: 28px;
-    height: 28px;
-    border: 3px solid var(--border-color);
-    border-top-color: var(--primary);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-top: 10px;
+    display: block;
+    position: relative;
+    z-index: 1;
 }
 
+/* App name & tagline */
+.splash-brand {
+    text-align: center;
+    animation: brandSlideUp 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s both;
+}
+.splash-brand-name { font-size: 2rem; }
+.splash-tagline {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-top: 6px;
+}
+
+/* Bouncing dots loader */
+.splash-dots {
+    display: flex;
+    gap: 8px;
+    animation: brandSlideUp 0.6s ease 0.7s both;
+}
+.s-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+    animation: dotBounce 1.2s ease-in-out infinite;
+}
+.s-dot:nth-child(2) { animation-delay: 0.2s; background: var(--accent); }
+.s-dot:nth-child(3) { animation-delay: 0.4s; }
+
 /* ── Animations ─────────────────────────────────────────────── */
-@keyframes fadeIn    { from { opacity: 0; } to { opacity: 1; } }
-@keyframes viewFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes slideUp   { from { transform: translateY(100%); } to { transform: translateY(0); } }
-@keyframes spin      { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@keyframes pulse     { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.85; } }
+@keyframes fadeIn      { from { opacity: 0; } to { opacity: 1; } }
+@keyframes viewFadeIn  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideUp     { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes spin        { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes pulse       { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+
+@keyframes ringExpand {
+    0%   { transform: scale(0.9); opacity: 0.7; }
+    100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes logoEntrance {
+    0%   { opacity: 0; transform: scale(0.4); }
+    70%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+@keyframes glowPulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50%       { opacity: 1;   transform: scale(1.1); }
+}
+@keyframes brandSlideUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes dotBounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40%            { transform: translateY(-10px); opacity: 1; }
+}
+@keyframes splashFadeOut {
+    from { opacity: 1; transform: scale(1); }
+    to   { opacity: 0; transform: scale(1.04); }
+}
+

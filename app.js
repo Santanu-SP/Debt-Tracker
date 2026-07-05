@@ -39,15 +39,27 @@ if (!firebase.apps.length) {
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+// Track when the app started for minimum splash enforcement
+const SPLASH_START = Date.now();
+const MIN_SPLASH_MS = 3000;
+
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     initAuthObserver();
 });
 
 function initAuthObserver() {
     auth.onAuthStateChanged(async (user) => {
+        // Enforce minimum 3-second splash duration
+        const elapsed = Date.now() - SPLASH_START;
+        const wait = Math.max(0, MIN_SPLASH_MS - elapsed);
+        if (wait > 0) await new Promise(r => setTimeout(r, wait));
+
+        // Smooth animated exit of splash
+        await hideSplash();
+
         if (user) {
-            // Retrieve username from email
             let username = user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
             if (user.email.endsWith('@pocketsafe.local')) {
                 username = user.email.split('@')[0];
@@ -58,6 +70,19 @@ function initAuthObserver() {
             STATE.currentUser = null;
             showAuthView();
         }
+    });
+}
+
+function hideSplash() {
+    return new Promise(resolve => {
+        const splash = document.getElementById('splash-view');
+        if (!splash || splash.style.display === 'none') { resolve(); return; }
+        splash.classList.add('splash-exit');
+        setTimeout(() => {
+            splash.style.display = 'none';
+            splash.classList.remove('splash-exit');
+            resolve();
+        }, 500);
     });
 }
 
