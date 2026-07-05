@@ -23,13 +23,13 @@ let selectedRoommates = [];
 // --- FIREBASE CONFIGURATION ---
 // Replace these placeholders with your actual web app config from Firebase Console
 const firebaseConfig = {
-  apiKey: "AIzaSyDA-aN1GCjWpyjZUX2oVufT42nTg4cZJ5A",
-  authDomain: "pocket-saver-4a8e9.firebaseapp.com",
-  projectId: "pocket-saver-4a8e9",
-  storageBucket: "pocket-saver-4a8e9.firebasestorage.app",
-  messagingSenderId: "694005609776",
-  appId: "1:694005609776:web:155aa4933f9fc3b4f244f5",
-  measurementId: "G-7GKHM1VWE7"
+    apiKey: "AIzaSyDA-aN1GCjWpyjZUX2oVufT42nTg4cZJ5A",
+    authDomain: "pocket-saver-4a8e9.firebaseapp.com",
+    projectId: "pocket-saver-4a8e9",
+    storageBucket: "pocket-saver-4a8e9.firebasestorage.app",
+    messagingSenderId: "694005609776",
+    appId: "1:694005609776:web:155aa4933f9fc3b4f244f5",
+    measurementId: "G-7GKHM1VWE7"
 };
 
 // Initialize Firebase SDK
@@ -76,7 +76,7 @@ function showAppView() {
     if (splash) splash.style.display = 'none';
     document.getElementById('auth-view').style.display = 'none';
     document.getElementById('app-view').style.display = 'flex';
-    initUI(); 
+    initUI();
     loadData();
 }
 
@@ -139,7 +139,7 @@ async function handleRegister() {
     try {
         // Create user in Firebase Auth
         await auth.createUserWithEmailAndPassword(email, password);
-        
+
         // Setup initial user doc in Firestore
         await db.collection('users').doc(username).set({
             username,
@@ -170,7 +170,7 @@ async function loginWithGoogle() {
             await db.collection('users').doc(username).set({
                 username,
                 email: user.email,
-                settings: { salaryAmount: 0, salaryDate: 1, lastSalaryMonth: null, onboarded: false },
+                settings: { salaryAmount: 3000, salaryDate: 1, lastSalaryMonth: null },
                 savingsGoal: { title: "Set a savings goal! 🎯", target: 0 },
                 friends: []
             });
@@ -200,7 +200,7 @@ async function loadData() {
             await db.collection('users').doc(username).set({
                 username,
                 email: auth.currentUser ? auth.currentUser.email : '',
-                settings: { salaryAmount: 0, salaryDate: 1, lastSalaryMonth: null, onboarded: false },
+                settings: { salaryAmount: 3000, salaryDate: 1, lastSalaryMonth: null },
                 savingsGoal: { title: "Set a savings goal! 🎯", target: 0 },
                 friends: []
             });
@@ -209,13 +209,13 @@ async function loadData() {
         }
 
         const userData = userDoc.data();
-        STATE.settings = userData.settings || { salaryAmount: 0, salaryDate: 1, lastSalaryMonth: null, onboarded: false };
+        STATE.settings = userData.settings || { salaryAmount: 3000, salaryDate: 1, lastSalaryMonth: null };
         STATE.savingsGoal = userData.savingsGoal || { title: "Set a savings goal! 🎯", target: 0 };
 
         const displayName = userData.customUsername || username;
-        document.getElementById('user-display-name').textContent = displayName;
+        const nameEl = document.getElementById('user-display-name');
+        if (nameEl) nameEl.textContent = displayName;
 
-        // Show/hide unique username reminder banner
         const banner = document.getElementById('username-reminder-banner');
         if (banner) {
             banner.style.display = (userData.customUsername) ? 'none' : 'flex';
@@ -315,7 +315,7 @@ function updateDailyDial() {
     const today = new Date();
     const year = today.getFullYear();
     const month = today.getMonth();
-    
+
     const totalDays = new Date(year, month + 1, 0).getDate();
     const currentDay = today.getDate();
     const remainingDays = totalDays - currentDay + 1;
@@ -330,7 +330,7 @@ function updateDailyDial() {
     if (remainingDays > 0) {
         safeToSpend = (walletBalance - savingsNeeded) / remainingDays;
     }
-    
+
     if (safeToSpend < 0) {
         safeToSpend = 0;
     }
@@ -342,7 +342,7 @@ function updateDailyDial() {
 
     const dailyAverage = (STATE.settings.salaryAmount || 3000) / totalDays;
     const percent = Math.min(100, Math.max(0, (safeToSpend / dailyAverage) * 100));
-    
+
     const dial = document.getElementById('budget-progress-dial');
     if (dial) {
         dial.style.background = `conic-gradient(var(--primary) 0% ${percent}%, var(--accent) ${percent}%, var(--border-color) ${percent}% 100%)`;
@@ -590,55 +590,36 @@ async function addTransaction() {
 
 async function addFriend() {
     const nameInput = document.getElementById('f-name');
-    const nameOrEmail = nameInput.value.trim().toLowerCase();
+    const name = nameInput.value.trim().toLowerCase();
 
-    if (!nameOrEmail) return;
+    if (!name) return;
 
-    if (nameOrEmail === STATE.currentUser) {
+    if (name === STATE.currentUser) {
         alert("You cannot add yourself as a roommate!");
         return;
     }
 
     try {
-        let friendUsername = null;
-
-        // 1. Check if input is a direct username (doc ID exists)
-        const docRef = db.collection('users').doc(nameOrEmail);
-        const docSnap = await docRef.get();
-        if (docSnap.exists) {
-            friendUsername = nameOrEmail;
-        } else {
-            // 2. Query doc where email matches input
-            const querySnap = await db.collection('users').where('email', '==', nameOrEmail).get();
-            if (!querySnap.empty) {
-                friendUsername = querySnap.docs[0].id;
-            } else {
-                // 3. Query doc where customUsername matches input
-                const customSnap = await db.collection('users').where('customUsername', '==', nameOrEmail).get();
-                if (!customSnap.empty) {
-                    friendUsername = customSnap.docs[0].id;
-                }
-            }
-        }
-
-        if (!friendUsername) {
-            alert(`No user found with username or email: "${nameOrEmail}". Make sure they sign up first!`);
+        // Validate friend profile exists in database
+        const friendDoc = await db.collection('users').doc(name).get();
+        if (!friendDoc.exists) {
+            alert(`Hostel username "${name}" does not exist. They must register first!`);
             return;
         }
 
         const batch = db.batch();
         const myRef = db.collection('users').doc(STATE.currentUser);
         batch.update(myRef, {
-            friends: firebase.firestore.FieldValue.arrayUnion(friendUsername)
+            friends: firebase.firestore.FieldValue.arrayUnion(name)
         });
 
-        const friendRef = db.collection('users').doc(friendUsername);
+        const friendRef = db.collection('users').doc(name);
         batch.update(friendRef, {
             friends: firebase.firestore.FieldValue.arrayUnion(STATE.currentUser)
         });
 
         await batch.commit();
-        
+
         nameInput.value = '';
         closeModals();
         await loadData();
@@ -652,11 +633,11 @@ async function settleFriendDebt(friendId, friendName, amount) {
 
     try {
         await db.collection('transactions').add({
-            payer: friendName, 
+            payer: friendName,
             desc: `Settle with ${STATE.currentUser}`,
             amount: amount,
             type: 'repayment',
-            friend: STATE.currentUser, 
+            friend: STATE.currentUser,
             date: firebase.firestore.FieldValue.serverTimestamp()
         });
         await loadData();
@@ -667,8 +648,7 @@ async function settleFriendDebt(friendId, friendName, amount) {
 
 // --- STUDENT ALLOWANCE LOGIC ---
 async function saveSalaryConfig() {
-    const val = document.getElementById('salary-input').value;
-    const amount = val === '' ? 0 : parseFloat(val);
+    const amount = parseFloat(document.getElementById('salary-input').value);
     const date = parseInt(document.getElementById('salary-date').value);
 
     if (isNaN(amount) || isNaN(date)) return;
@@ -687,13 +667,13 @@ async function saveSalaryConfig() {
 
 async function checkSalaryAutoAdd() {
     const today = new Date();
-    const currentMonthStr = `${today.getFullYear()}-${today.getMonth() + 1}`; 
+    const currentMonthStr = `${today.getFullYear()}-${today.getMonth() + 1}`;
 
     if (STATE.settings.lastSalaryMonth !== currentMonthStr && STATE.settings.salaryAmount > 0) {
         if (today.getDate() >= STATE.settings.salaryDate) {
             try {
                 const batch = db.batch();
-                
+
                 const txRef = db.collection('transactions').doc();
                 batch.set(txRef, {
                     payer: STATE.currentUser,
@@ -722,13 +702,13 @@ async function checkSalaryAutoAdd() {
 function getCategoryFromDesc(desc, type) {
     if (type === 'lend') return 'Lending 💸';
     if (type === 'savings_deposit') return 'Savings Goal 🎯';
-    
+
     const d = desc.toLowerCase();
     if (d.includes('tea') || d.includes('coffee') || d.includes('chai')) return 'Chai & Cafe ☕';
     if (d.includes('maggi') || d.includes('canteen') || d.includes('lunch') || d.includes('dinner') || d.includes('food') || d.includes('eat')) return 'Food & Canteen 🍛';
     if (d.includes('auto') || d.includes('cab') || d.includes('metro') || d.includes('bus') || d.includes('rickshaw')) return 'Transit & Auto 🛺';
     if (d.includes('xerox') || d.includes('book') || d.includes('print') || d.includes('fee') || d.includes('pen') || d.includes('exam')) return 'Academics 📚';
-    if (d.includes('room') || d.includes('rent') || d.includes('wifi') || d.includes('net') || d.includes('electricity')) return 'Bills & Rent 🏠';
+    if (d.includes('room') || d.includes('rent') || d.includes('wifi') || d.includes('net') || d.includes('electricity')) return 'Hostel Bills 🏠';
     if (d.includes('split')) return 'Roomie Splits 👥';
     return 'Other Expense 🎁';
 }
@@ -747,8 +727,8 @@ function renderReports() {
         endDate = new Date(now.getFullYear(), now.getMonth(), 0);
         document.getElementById('reports-date-display').textContent = startDate.toLocaleString('default', { month: 'long', year: 'numeric' });
     } else {
-        startDate = new Date(0); 
-        endDate = new Date(8640000000000000); 
+        startDate = new Date(0);
+        endDate = new Date(8640000000000000);
         document.getElementById('reports-date-display').textContent = 'All Time';
     }
 
@@ -780,7 +760,7 @@ function renderReports() {
 
     // Bar Chart
     const barContainer = document.getElementById('bar-chart-container');
-    const maxVal = Math.max(income, expense, 100); 
+    const maxVal = Math.max(income, expense, 100);
     const incomeHeight = (income / maxVal) * 100;
     const expenseHeight = (expense / maxVal) * 100;
 
@@ -799,10 +779,10 @@ function renderReports() {
     const donut = document.getElementById('category-donut');
     const legend = document.getElementById('category-legend');
 
-    const sortedCats = Object.entries(categoryExpenses).sort((a, b) => b[1] - a[1]).slice(0, 5); 
+    const sortedCats = Object.entries(categoryExpenses).sort((a, b) => b[1] - a[1]).slice(0, 5);
     let conicStr = '';
     let currentDeg = 0;
-    const colors = ['#6366f1', '#a855f7', '#10b981', '#f59e0b', '#f43f5e']; 
+    const colors = ['#6366f1', '#a855f7', '#10b981', '#f59e0b', '#f43f5e'];
     let legendHtml = '';
 
     sortedCats.forEach((item, index) => {
@@ -821,7 +801,7 @@ function renderReports() {
     });
 
     if (expense === 0) conicStr = 'var(--border-color) 0deg 360deg';
-    else conicStr = conicStr.slice(0, -2); 
+    else conicStr = conicStr.slice(0, -2);
 
     donut.style.background = `conic-gradient(${conicStr})`;
     legend.innerHTML = legendHtml || '<div style="color:var(--text-secondary); font-weight:600;">No spending logged</div>';
@@ -867,9 +847,9 @@ async function loadDemoData() {
 
         // 3. Staged Demo Transactions
         const txs = [
-            { type: 'salary', amount: 8000, desc: 'Monthly Salary Inflow', date: new Date(now.getFullYear(), now.getMonth(), 1) },
+            { type: 'salary', amount: 8000, desc: 'Pocket Money from Dad', date: new Date(now.getFullYear(), now.getMonth(), 1) },
             { type: 'savings_deposit', amount: 500, desc: 'Deposit to: Noise Earphones 🎧', date: new Date(now.getFullYear(), now.getMonth(), 2) },
-            { type: 'expense', amount: 1500, desc: 'Wifi bill', date: new Date(now.getFullYear(), now.getMonth(), 3) },
+            { type: 'expense', amount: 1500, desc: 'Hostel Wifi bill', date: new Date(now.getFullYear(), now.getMonth(), 3) },
             { type: 'split', amount: 360, desc: 'Canteen Lunch', date: new Date(now.getFullYear(), now.getMonth(), 5), splitDetails: { totalParticipants: 2, amountPerPerson: 180, involvedUsernames: ['rahul'], includedMe: true } },
             { type: 'expense', amount: 40, desc: 'Chai & Samosa', date: new Date(now.getFullYear(), now.getMonth(), 5) },
             { type: 'lend', amount: 50, desc: 'Lent for Xerox Sneha', date: new Date(now.getFullYear(), now.getMonth(), 6), friend: 'sneha' },
@@ -896,7 +876,7 @@ async function loadDemoData() {
 // --- UI POPULATORS ---
 function initUI() {
     const dateSelect = document.getElementById('salary-date');
-    if (dateSelect.options.length > 0) return; 
+    if (dateSelect.options.length > 0) return;
 
     for (let i = 1; i <= 31; i++) {
         const opt = document.createElement('option');
@@ -1022,7 +1002,7 @@ function renderHistoryView() {
     list.innerHTML = '';
 
     const now = new Date();
-    let cutoffDate = new Date(0); 
+    let cutoffDate = new Date(0);
 
     if (filterVal === '30days') {
         cutoffDate.setDate(now.getDate() - 30);
@@ -1260,8 +1240,6 @@ function formatCurrency(num) {
 function showOnboardingModal() {
     const modal = document.getElementById('modal-onboarding');
     if (!modal) return;
-
-    // Populate dates
     const select = document.getElementById('onboard-allowance-date');
     if (select && select.options.length === 0) {
         for (let i = 1; i <= 31; i++) {
@@ -1271,7 +1249,6 @@ function showOnboardingModal() {
             select.appendChild(opt);
         }
     }
-
     modal.style.display = 'flex';
 }
 
@@ -1279,79 +1256,38 @@ async function submitOnboarding() {
     const balInput = document.getElementById('onboard-balance');
     const allowInput = document.getElementById('onboard-allowance');
     const dateInput = document.getElementById('onboard-allowance-date');
-
     const balance = parseFloat(balInput.value) || 0;
     const allowance = parseFloat(allowInput.value) || 0;
     const date = parseInt(dateInput.value) || 1;
-
-    if (balance < 0 || allowance < 0) {
-        alert("Values cannot be negative.");
-        return;
-    }
-
+    if (balance < 0 || allowance < 0) { alert('Values cannot be negative.'); return; }
     const username = STATE.currentUser;
     try {
         const batch = db.batch();
-
-        // 1. Log starting balance transaction if > 0
         if (balance > 0) {
             const txRef = db.collection('transactions').doc();
-            batch.set(txRef, {
-                payer: username,
-                desc: 'Starting Balance Adjustment',
-                amount: balance,
-                type: 'income',
-                date: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            batch.set(txRef, { payer: username, desc: 'Starting Balance', amount: balance, type: 'income', date: firebase.firestore.FieldValue.serverTimestamp() });
         }
-
-        // 2. Set settings
         const userRef = db.collection('users').doc(username);
-        batch.update(userRef, {
-            settings: {
-                salaryAmount: allowance,
-                salaryDate: date,
-                lastSalaryMonth: null,
-                onboarded: true
-            }
-        });
-
+        batch.update(userRef, { settings: { salaryAmount: allowance, salaryDate: date, lastSalaryMonth: null, onboarded: true } });
         await batch.commit();
-
         document.getElementById('modal-onboarding').style.display = 'none';
         await loadData();
-    } catch (e) {
-        alert("Setup failed: " + e.message);
-    }
+    } catch (e) { alert('Setup failed: ' + e.message); }
 }
 
 async function clearAllData() {
-    if (!confirm("Are you sure you want to delete all user settings and transactions? This cannot be undone.")) return;
-
+    if (!confirm('Are you sure you want to delete all user settings and transactions? This cannot be undone.')) return;
     try {
         const username = STATE.currentUser;
         const batch = db.batch();
-
-        // 1. Delete transactions where payer == username
         const txsSnap = await db.collection('transactions').where('payer', '==', username).get();
-        txsSnap.forEach(doc => {
-            batch.delete(doc.ref);
-        });
-
-        // 2. Reset user settings & friends list
+        txsSnap.forEach(doc => batch.delete(doc.ref));
         const userRef = db.collection('users').doc(username);
-        batch.update(userRef, {
-            settings: { salaryAmount: 0, salaryDate: 1, lastSalaryMonth: null, onboarded: false },
-            savingsGoal: { title: "Set a savings goal! 🎯", target: 0 },
-            friends: []
-        });
-
+        batch.update(userRef, { settings: { salaryAmount: 0, salaryDate: 1, lastSalaryMonth: null, onboarded: false }, savingsGoal: { title: 'Set a savings goal! 🎯', target: 0 }, friends: [] });
         await batch.commit();
-        alert("Data reset successfully!");
+        alert('Data reset successfully!');
         location.reload();
-    } catch (e) {
-        alert("Reset failed: " + e.message);
-    }
+    } catch (e) { alert('Reset failed: ' + e.message); }
 }
 
 let selectedPhotoBase64 = '';
@@ -1359,42 +1295,19 @@ let selectedPhotoBase64 = '';
 function handleImageUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 120;
-            const MAX_HEIGHT = 120;
-            let width = img.width;
-            let height = img.height;
-
-            if (width > height) {
-                if (width > MAX_WIDTH) {
-                    height *= MAX_WIDTH / width;
-                    width = MAX_WIDTH;
-                }
-            } else {
-                if (height > MAX_HEIGHT) {
-                    width *= MAX_HEIGHT / height;
-                    height = MAX_HEIGHT;
-                }
-            }
-
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-
-            // Compress to JPEG with 70% quality
+            const MAX = 120;
+            let w = img.width, h = img.height;
+            if (w > h) { if (w > MAX) { h *= MAX / w; w = MAX; } } else { if (h > MAX) { w *= MAX / h; h = MAX; } }
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
             selectedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.7);
-            
-            // Update preview
             const preview = document.getElementById('profile-avatar-preview');
-            if (preview) {
-                preview.innerHTML = `<img src="${selectedPhotoBase64}" style="width:100%; height:100%; object-fit:cover;">`;
-            }
+            if (preview) preview.innerHTML = `<img src="${selectedPhotoBase64}" style="width:100%;height:100%;object-fit:cover;">`;
         };
         img.src = e.target.result;
     };
@@ -1404,105 +1317,80 @@ function handleImageUpload(event) {
 async function showProfileModal() {
     if (!STATE.currentUser) return;
     const username = STATE.currentUser;
-
     try {
         const userDoc = await db.collection('users').doc(username).get();
         if (userDoc.exists) {
             const data = userDoc.data();
-            
-            // Set account info
             const currentUserObj = auth.currentUser;
             document.getElementById('profile-email-display').textContent = currentUserObj ? currentUserObj.email : 'Local Account';
             document.getElementById('profile-id-display').textContent = username;
-
             document.getElementById('profile-username').value = data.customUsername || '';
             document.getElementById('profile-phone').value = data.phone || '';
             document.getElementById('profile-room').value = data.roomNo || '';
-            
             selectedPhotoBase64 = data.photoUrl || '';
             const preview = document.getElementById('profile-avatar-preview');
             if (preview) {
                 if (selectedPhotoBase64) {
-                    preview.innerHTML = `<img src="${selectedPhotoBase64}" style="width:100%; height:100%; object-fit:cover;">`;
+                    preview.innerHTML = `<img src="${selectedPhotoBase64}" style="width:100%;height:100%;object-fit:cover;">`;
                 } else {
                     preview.textContent = '👤';
                 }
             }
-            
+            // Show username change info
+            const changesLeft = 3 - (data.usernameChangesCount || 0);
+            const usernameField = document.getElementById('profile-username');
+            if (usernameField) usernameField.title = `${changesLeft} username change(s) remaining (max 3 lifetime, 30-day cooldown)`;
             document.getElementById('modal-profile').style.display = 'flex';
         }
-    } catch (e) {
-        alert("Failed to load profile details: " + e.message);
-    }
+    } catch (e) { alert('Failed to load profile: ' + e.message); }
 }
 
 async function saveProfile() {
     if (!STATE.currentUser) return;
     const username = STATE.currentUser;
-
     const newUsername = document.getElementById('profile-username').value.trim().toLowerCase();
     const phone = document.getElementById('profile-phone').value.trim();
     const room = document.getElementById('profile-room').value.trim();
-
     if (newUsername !== '') {
         const usernameRegex = /^[a-z0-9_]+$/;
         if (!usernameRegex.test(newUsername)) {
-            alert("Username must only contain lowercase letters, numbers, and underscores.");
+            alert('Username must only contain lowercase letters, numbers, and underscores.');
             return;
         }
     }
-
     try {
         const userDoc = await db.collection('users').doc(username).get();
         const userData = userDoc.data() || {};
-        
         let customUsername = userData.customUsername || '';
         let changesCount = userData.usernameChangesCount || 0;
         let lastChangeStr = userData.lastUsernameChangeDate || null;
-        
-        let updatePayload = {
-            phone: phone,
-            roomNo: room,
-            photoUrl: selectedPhotoBase64
-        };
-
+        let updatePayload = { phone, roomNo: room, photoUrl: selectedPhotoBase64 };
         if (newUsername !== '' && newUsername !== customUsername) {
             if (changesCount >= 3) {
-                alert("You have reached the maximum limit of 3 lifetime username changes.");
+                alert('You have reached the maximum limit of 3 lifetime username changes.');
                 return;
             }
             if (lastChangeStr) {
-                const lastChange = new Date(lastChangeStr);
-                const now = new Date();
-                const diffTime = Math.abs(now - lastChange);
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
+                const diffDays = Math.floor((new Date() - new Date(lastChangeStr)) / (1000 * 60 * 60 * 24));
                 if (diffDays < 30) {
-                    alert(`You can only change your username once every 30 days. Please try again in ${30 - diffDays} days.`);
+                    alert(`You can only change your username once every 30 days. Please try again in ${30 - diffDays} day(s).`);
                     return;
                 }
             }
-
             const querySnap = await db.collection('users').where('customUsername', '==', newUsername).get();
-            if (!querySnap.empty) {
-                const takenByOther = querySnap.docs.some(doc => doc.id !== username);
-                if (takenByOther) {
-                    alert("This username is already taken by another user. Please pick a different one!");
-                    return;
-                }
+            if (!querySnap.empty && querySnap.docs.some(doc => doc.id !== username)) {
+                alert('This username is already taken. Please pick a different one!');
+                return;
             }
-
             updatePayload.customUsername = newUsername;
             updatePayload.usernameChangesCount = changesCount + 1;
             updatePayload.lastUsernameChangeDate = new Date().toISOString();
         } else if (newUsername === customUsername) {
-            updatePayload.customUsername = newUsername; // Keep existing if same
+            updatePayload.customUsername = newUsername;
         }
-
         await db.collection('users').doc(username).update(updatePayload);
-        alert("Profile details updated successfully!");
+        alert('Profile updated successfully!');
         closeModals();
         await loadData();
-    } catch (e) {
-        alert("Failed to save profile: " + e.message);
-    }
+    } catch (e) { alert('Failed to save profile: ' + e.message); }
 }
