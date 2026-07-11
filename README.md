@@ -2,7 +2,7 @@
 
 A personal finance app for tracking expenses, splitting bills with friends, setting savings goals, and seeing where your money actually goes.
 
-**Built by:** Santanu S. — 2nd year CS student
+**Built by:** Santanu Panchadhyai — CS student
 **Live app:** [pocket-safe.pages.dev](https://pocket-safe.pages.dev)
 
 I built this using AI coding tools (Antigravity, Gemini, OpenAI Codex) as my implementation help, while I handled the architecture, the prompts, and all the debugging decisions myself. This README walks through what the app does, how it's structured, and some of the harder problems I ran into while building it.
