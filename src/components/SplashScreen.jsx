@@ -14,7 +14,7 @@ function Particle({ angle, delay }) {
       style={{
         width: size,
         height: size,
-        background: `hsl(${140 + Math.random() * 40}, 72%, ${55 + Math.random() * 20}%)`,
+        background: `hsl(${150 + Math.random() * 30}, 72%, ${48 + Math.random() * 20}%)`,
         top: '50%',
         left: '50%',
         marginTop: -size / 2,
@@ -47,7 +47,7 @@ function ArcRing({ size, strokeWidth, delay }) {
         cy={size / 2}
         r={r}
         fill="none"
-        stroke="url(#arcGradGreen)"
+        stroke="url(#arcGradMoney)"
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeDasharray={circumference}
@@ -56,10 +56,11 @@ function ArcRing({ size, strokeWidth, delay }) {
         transition={{ duration: 1.6, delay: delay + 0.1, ease: [0.16, 1, 0.3, 1] }}
       />
       <defs>
-        <linearGradient id="arcGradGreen" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#4ade80" />
-          <stop offset="50%" stopColor="#16a34a" />
-          <stop offset="100%" stopColor="#0d9488" stopOpacity="0" />
+        <linearGradient id="arcGradMoney" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#34d399" />
+          <stop offset="50%" stopColor="#059669" />
+          <stop offset="80%" stopColor="#d97706" />
+          <stop offset="100%" stopColor="#047857" stopOpacity="0" />
         </linearGradient>
       </defs>
     </motion.svg>
@@ -90,7 +91,7 @@ export default function SplashScreen({ isVisible }) {
               width: 300,
               height: 300,
               background:
-                'radial-gradient(circle, rgba(22,163,74,0.16) 0%, rgba(13,148,136,0.08) 50%, transparent 70%)',
+                  'radial-gradient(circle, rgba(5,150,105,0.16) 0%, rgba(217,119,6,0.07) 55%, transparent 70%)',
               top: '50%',
               left: '50%',
               marginTop: -150,
@@ -129,7 +130,7 @@ export default function SplashScreen({ isVisible }) {
               style={{
                 inset: -14,
                 background:
-                  'radial-gradient(circle, rgba(22,163,74,0.45) 0%, transparent 70%)',
+                  'radial-gradient(circle, rgba(5,150,105,0.4) 0%, rgba(217,119,6,0.15) 60%, transparent 80%)',
               }}
               animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.12, 1] }}
               transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
@@ -208,7 +209,7 @@ export default function SplashScreen({ isVisible }) {
               style={{
                 height: '100%',
                 borderRadius: 9999,
-                background: 'linear-gradient(90deg, #16a34a, #0d9488)',
+                background: 'linear-gradient(90deg, #047857, #059669, #d97706)',
                 originX: 0,
               }}
               initial={{ scaleX: 0 }}

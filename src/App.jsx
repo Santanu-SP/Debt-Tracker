@@ -173,7 +173,7 @@ export default function App() {
                       <div className="budget-stat-lbl">Wallet Balance</div>
                     </div>
                     <div className="budget-stat-item" style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: 20 }}>
-                      <div className="budget-stat-val" id="saved-money" style={{ color: 'var(--success)' }}>₹0.00</div>
+                      <div className="budget-stat-val stat-gold" id="saved-money">₹0.00</div>
                       <div className="budget-stat-lbl">Saved So Far</div>
                     </div>
                   </div>
@@ -212,7 +212,7 @@ export default function App() {
                   <span className="goal-values" id="goal-progress-values">₹0 / ₹0</span>
                 </div>
                 <div className="goal-progress-track">
-                  <div className="goal-progress-bar" id="goal-progress-bar"></div>
+                  <div className="goal-progress-bar" id="goal-progress-bar" style={{ background: 'linear-gradient(90deg, #047857, #d97706)' }}></div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span className="goal-meta" id="goal-days-status">Spend less than usual to build savings</span>
@@ -279,7 +279,7 @@ export default function App() {
                   </div>
                   <div className="stat-item">
                     <div className="stat-label">Saved</div>
-                    <div className="stat-value" id="report-savings" style={{ color: 'var(--primary)' }}>₹0.00</div>
+                    <div className="stat-value" id="report-savings" style={{ color: 'var(--gold)' }}>₹0.00</div>
                   </div>
                 </div>
                 <div className="tip-box">

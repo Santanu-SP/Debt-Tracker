@@ -3,31 +3,40 @@
 
 /* ── Design Tokens ─────────────────────────────────────────── */
 :root {
-    --primary:       #16a34a;
-    --primary-dark:  #15803d;
-    --primary-light: #4ade80;
-    --accent:        #0ea5e9;
+    /* Jewel emerald — rich, not forest */
+    --primary:       #059669;
+    --primary-dark:  #047857;
+    --primary-light: #34d399;
 
-    --gradient-primary: linear-gradient(135deg, #16a34a 0%, #0d9488 100%);
-    --gradient-success: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    /* Gold accent — the "money" colour */
+    --gold:          #d97706;
+    --gold-light:    #fbbf24;
+    --gold-dark:     #b45309;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, #065f46 0%, #059669 60%, #d97706 100%);
+    --gradient-emerald: linear-gradient(135deg, #059669 0%, #047857 100%);
+    --gradient-gold:    linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    --gradient-success: linear-gradient(135deg, #059669 0%, #047857 100%);
     --gradient-danger:  linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-    --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    --gradient-sky:     linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+    --gradient-warning: linear-gradient(135deg, #d97706 0%, #92400e 100%);
+    --gradient-money:   linear-gradient(135deg, #065f46 0%, #059669 40%, #ca8a04 100%);
 
-    --bg-color:     #f6faf7;
+    /* Warm cream background — like fine paper / currency */
+    --bg-color:     #fafaf6;
     --surface:      #ffffff;
     --card-bg:      #ffffff;
-    --card-border:  #e2ede6;
-    --input-bg:     #f0f7f2;
-    --border-color: #d9ead0;
+    --card-border:  #e5e7e0;
+    --input-bg:     #f4f6f0;
+    --border-color: #dde0d4;
 
-    --text-primary:   #1a2e1f;
-    --text-secondary: #4a6355;
-    --text-muted:     #7f9e8a;
+    --text-primary:   #1c1f17;
+    --text-secondary: #4b5249;
+    --text-muted:     #8a9180;
 
-    --success: #16a34a;
+    --success: #059669;
     --danger:  #ef4444;
-    --warning: #f59e0b;
+    --warning: #d97706;
 
     --radius-xs:   6px;
     --radius-sm:   10px;
@@ -36,10 +45,11 @@
     --radius-xl:   28px;
     --radius-pill: 9999px;
 
-    --shadow-xs: 0 1px 3px rgba(22,163,74,0.06);
-    --shadow-sm: 0 2px 8px rgba(22,163,74,0.08);
-    --shadow-md: 0 6px 20px rgba(22,163,74,0.10);
-    --shadow-lg: 0 16px 40px rgba(22,163,74,0.14);
+    --shadow-xs: 0 1px 3px rgba(6,95,70,0.07);
+    --shadow-sm: 0 2px 8px rgba(6,95,70,0.09);
+    --shadow-md: 0 6px 20px rgba(6,95,70,0.11);
+    --shadow-lg: 0 16px 40px rgba(6,95,70,0.15);
+    --shadow-gold: 0 4px 14px rgba(217,119,6,0.28);
 
     --ease-out:    0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     --ease-spring: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -47,21 +57,23 @@
 
 /* ── Dark Mode ──────────────────────────────────────────────── */
 body.dark-mode {
-    --bg-color:     #0d1611;
-    --surface:      #132118;
-    --card-bg:      #132118;
-    --card-border:  #1f3328;
-    --input-bg:     #1a2e21;
-    --border-color: #254033;
+    /* Rich charcoal — not too dark-forest */
+    --bg-color:     #111410;
+    --surface:      #1c1e18;
+    --card-bg:      #1c1e18;
+    --card-border:  #2a2e24;
+    --input-bg:     #232720;
+    --border-color: #333830;
 
-    --text-primary:   #e8f5ed;
-    --text-secondary: #7aad8d;
-    --text-muted:     #3f6450;
+    --text-primary:   #f0ede4;
+    --text-secondary: #9aab8c;
+    --text-muted:     #4f5c47;
 
-    --shadow-xs: 0 1px 3px rgba(0,0,0,0.3);
-    --shadow-sm: 0 2px 8px rgba(0,0,0,0.35);
-    --shadow-md: 0 6px 20px rgba(0,0,0,0.4);
-    --shadow-lg: 0 16px 40px rgba(0,0,0,0.5);
+    --shadow-xs: 0 1px 3px rgba(0,0,0,0.35);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+    --shadow-md: 0 6px 20px rgba(0,0,0,0.45);
+    --shadow-lg: 0 16px 40px rgba(0,0,0,0.55);
+    --shadow-gold: 0 4px 14px rgba(217,119,6,0.18);
 }
 
 /* ── Base ───────────────────────────────────────────────────── */
@@ -74,7 +86,7 @@ body.dark-mode {
 
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #0a1a0e;
+    background-color: #0e120b;
     color: var(--text-primary);
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
@@ -95,10 +107,10 @@ body {
         height: 840px;
         background-color: var(--bg-color);
         border-radius: 44px;
-        border: 10px solid #101a12;
+        border: 10px solid #0e120b;
         box-shadow:
-            0 30px 60px -12px rgba(0,0,0,0.7),
-            0 0 0 1px rgba(255,255,255,0.04),
+            0 30px 60px -12px rgba(0,0,0,0.75),
+            0 0 0 1px rgba(217,119,6,0.08),
             inset 0 1px 0 rgba(255,255,255,0.06);
         overflow: hidden;
         position: relative;
@@ -271,12 +283,12 @@ header {
     width: 148px;
     height: 148px;
     border-radius: 50%;
-    background: conic-gradient(#16a34a 0%, #0d9488 0%, var(--border-color) 0% 100%);
+    background: conic-gradient(#047857 0%, #059669 0%, #d97706 0%, var(--border-color) 0% 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     transition: background 0.9s ease;
-    box-shadow: 0 8px 24px rgba(22,163,74,0.2);
+    box-shadow: 0 8px 28px rgba(5,150,105,0.18), 0 2px 8px rgba(217,119,6,0.12);
     position: relative;
 }
 .gauge-circle::after {
@@ -336,6 +348,15 @@ header {
     background: var(--input-bg);
     border-radius: var(--radius-pill);
     line-height: 1.4;
+}
+
+/* Gold savings highlight — used on "Saved So Far" stat */
+.stat-gold {
+    color: var(--gold) !important;
+}
+.stat-gold-bg {
+    background: linear-gradient(135deg, rgba(217,119,6,0.08) 0%, rgba(251,191,36,0.06) 100%);
+    border-color: rgba(217,119,6,0.2) !important;
 }
 
 /* ── Quick chips ────────────────────────────────────────────── */
@@ -472,9 +493,9 @@ header {
 .btn-primary {
     background: var(--gradient-primary);
     color: white;
-    box-shadow: 0 4px 14px rgba(22,163,74,0.3);
+    box-shadow: 0 4px 14px rgba(5,150,105,0.25), 0 2px 6px rgba(217,119,6,0.15);
 }
-.btn-primary:hover { box-shadow: 0 6px 20px rgba(22,163,74,0.4); }
+.btn-primary:hover { box-shadow: 0 6px 20px rgba(5,150,105,0.35), 0 3px 8px rgba(217,119,6,0.2); }
 .btn-secondary {
     background: var(--input-bg);
     color: var(--text-primary);
@@ -515,7 +536,7 @@ input:focus, select:focus {
     outline: none;
     border-color: var(--primary);
     background-color: var(--card-bg);
-    box-shadow: 0 0 0 3px rgba(22,163,74,0.12);
+    box-shadow: 0 0 0 3px rgba(5,150,105,0.12);
 }
 input::placeholder { color: var(--text-muted); font-weight: 400; }
 
@@ -569,7 +590,7 @@ input::placeholder { color: var(--text-muted); font-weight: 400; }
     transform: translateX(-50%);
     width: 24px;
     height: 2.5px;
-    background: var(--primary);
+    background: linear-gradient(90deg, var(--primary), var(--gold));
     border-radius: var(--radius-pill);
 }
 .nav-item svg { stroke-width: 2px; width: 22px; height: 22px; stroke: var(--text-muted); transition: stroke var(--ease-out); }
@@ -658,21 +679,21 @@ input::placeholder { color: var(--text-muted); font-weight: 400; }
     align-items: center;
     justify-content: center;
     font-size: 22px;
-    box-shadow: 0 6px 20px rgba(22,163,74,0.38);
+    box-shadow: 0 6px 20px rgba(5,150,105,0.3), 0 2px 8px rgba(217,119,6,0.2);
     border: none;
     cursor: pointer;
     z-index: 90;
     transition: transform var(--ease-spring), box-shadow var(--ease-out);
 }
-.fab:active { transform: scale(0.88); box-shadow: 0 3px 10px rgba(22,163,74,0.3); }
+.fab:active { transform: scale(0.88); box-shadow: 0 3px 10px rgba(5,150,105,0.25); }
 
 /* ── Misc ───────────────────────────────────────────────────── */
 .stat-label-sm { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; }
 
-/* ── Info tip box ───────────────────────────────────────────── */
+/* ── Info tip box ────────────────────────────────────────── */
 .tip-box {
-    background: rgba(22,163,74,0.07);
-    border: 1px solid rgba(22,163,74,0.2);
+    background: linear-gradient(135deg, rgba(5,150,105,0.06) 0%, rgba(217,119,6,0.04) 100%);
+    border: 1px solid rgba(5,150,105,0.18);
     border-radius: var(--radius-md);
     padding: 10px 13px;
     font-size: 0.75rem;
@@ -681,7 +702,7 @@ input::placeholder { color: var(--text-muted); font-weight: 400; }
     line-height: 1.45;
     margin-bottom: 10px;
 }
-.tip-box strong { color: var(--primary); }
+.tip-box strong { color: var(--gold-dark); }
 
 /* ── Onboarding feature rows ────────────────────────────────── */
 .onboard-feature-row {
