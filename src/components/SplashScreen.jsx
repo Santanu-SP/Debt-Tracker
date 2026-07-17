@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useAnimation } from 'framer-motion';
+import { useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // ─── Particle Component ────────────────────────────────────────────────────
 function Particle({ angle, delay }) {
-  const distance = 90 + Math.random() * 50;
+  const distance = 85 + Math.random() * 50;
   const x = Math.cos((angle * Math.PI) / 180) * distance;
   const y = Math.sin((angle * Math.PI) / 180) * distance;
   const size = 2 + Math.random() * 3;
@@ -14,7 +14,7 @@ function Particle({ angle, delay }) {
       style={{
         width: size,
         height: size,
-        background: `hsl(${230 + Math.random() * 40}, 80%, ${70 + Math.random() * 20}%)`,
+        background: `hsl(${140 + Math.random() * 40}, 72%, ${55 + Math.random() * 20}%)`,
         top: '50%',
         left: '50%',
         marginTop: -size / 2,
@@ -47,7 +47,7 @@ function ArcRing({ size, strokeWidth, delay }) {
         cy={size / 2}
         r={r}
         fill="none"
-        stroke="url(#arcGrad)"
+        stroke="url(#arcGradGreen)"
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeDasharray={circumference}
@@ -56,34 +56,20 @@ function ArcRing({ size, strokeWidth, delay }) {
         transition={{ duration: 1.6, delay: delay + 0.1, ease: [0.16, 1, 0.3, 1] }}
       />
       <defs>
-        <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#818cf8" />
-          <stop offset="50%" stopColor="#a78bfa" />
-          <stop offset="100%" stopColor="#5a67d8" stopOpacity="0" />
+        <linearGradient id="arcGradGreen" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#4ade80" />
+          <stop offset="50%" stopColor="#16a34a" />
+          <stop offset="100%" stopColor="#0d9488" stopOpacity="0" />
         </linearGradient>
       </defs>
     </motion.svg>
   );
 }
 
-// ─── Shimmer Letter ────────────────────────────────────────────────────────
-function ShimmerText({ text, className, delay }) {
-  return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay, ease: [0.25, 0.46, 0.45, 0.94] }}
-    >
-      {text}
-    </motion.div>
-  );
-}
-
 // ─── Main Splash Screen ────────────────────────────────────────────────────
 export default function SplashScreen({ isVisible }) {
-  const particles = Array.from({ length: 28 }, (_, i) => ({
-    angle: (360 / 28) * i,
+  const particles = Array.from({ length: 24 }, (_, i) => ({
+    angle: (360 / 24) * i,
     delay: 0.05 + Math.random() * 0.2,
   }));
 
@@ -94,21 +80,21 @@ export default function SplashScreen({ isVisible }) {
           key="splash"
           className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden"
           style={{ background: 'var(--bg-color)' }}
-          exit={{ opacity: 0, scale: 1.06 }}
-          transition={{ duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
+          exit={{ opacity: 0, scale: 1.05 }}
+          transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
         >
           {/* ── Background ambient glow ── */}
           <motion.div
             className="absolute rounded-full"
             style={{
-              width: 320,
-              height: 320,
+              width: 300,
+              height: 300,
               background:
-                'radial-gradient(circle, rgba(90,103,216,0.18) 0%, rgba(159,122,234,0.10) 50%, transparent 70%)',
+                'radial-gradient(circle, rgba(22,163,74,0.16) 0%, rgba(13,148,136,0.08) 50%, transparent 70%)',
               top: '50%',
               left: '50%',
-              marginTop: -160,
-              marginLeft: -160,
+              marginTop: -150,
+              marginLeft: -150,
             }}
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -137,13 +123,13 @@ export default function SplashScreen({ isVisible }) {
               ease: [0.34, 1.56, 0.64, 1],
             }}
           >
-            {/* Glow halo around logo */}
+            {/* Glow halo */}
             <motion.div
               className="absolute rounded-[38px]"
               style={{
                 inset: -14,
                 background:
-                  'radial-gradient(circle, rgba(90,103,216,0.5) 0%, transparent 70%)',
+                  'radial-gradient(circle, rgba(22,163,74,0.45) 0%, transparent 70%)',
               }}
               animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.12, 1] }}
               transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
@@ -152,11 +138,11 @@ export default function SplashScreen({ isVisible }) {
               src="assets/logo.png"
               alt="PocketSafe Logo"
               className="relative z-10 object-cover"
-              style={{ width: 110, height: 110, borderRadius: 28, display: 'block' }}
+              style={{ width: 100, height: 100, borderRadius: 26, display: 'block' }}
             />
           </motion.div>
 
-          {/* ── Brand name with shimmer gradient ── */}
+          {/* ── Brand name ── */}
           <motion.div
             className="relative z-10 mt-6 text-center"
             initial={{ opacity: 0, y: 22 }}
@@ -165,9 +151,9 @@ export default function SplashScreen({ isVisible }) {
           >
             <div
               style={{
-                fontFamily: "'Space Grotesk', sans-serif",
+                fontFamily: "'Nunito', sans-serif",
                 fontSize: '2rem',
-                fontWeight: 700,
+                fontWeight: 900,
                 letterSpacing: '-0.03em',
                 lineHeight: 1,
                 position: 'relative',
@@ -194,19 +180,22 @@ export default function SplashScreen({ isVisible }) {
             </div>
 
             {/* Tagline */}
-            <ShimmerText
-              text="Smart Budget & Split Tracker"
-              delay={0.85}
+            <motion.div
               className="mt-2"
-              style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 500 }}
-            />
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.85, ease: [0.25, 0.46, 0.45, 0.94] }}
+              style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 600 }}
+            >
+              Your money, your rules 🌱
+            </motion.div>
           </motion.div>
 
           {/* ── Loading bar ── */}
           <motion.div
             className="relative z-10 mt-10 overflow-hidden"
             style={{
-              width: 120,
+              width: 110,
               height: 3,
               borderRadius: 9999,
               background: 'var(--border-color)',
@@ -219,7 +208,7 @@ export default function SplashScreen({ isVisible }) {
               style={{
                 height: '100%',
                 borderRadius: 9999,
-                background: 'linear-gradient(90deg, #5a67d8, #9f7aea)',
+                background: 'linear-gradient(90deg, #16a34a, #0d9488)',
                 originX: 0,
               }}
               initial={{ scaleX: 0 }}
