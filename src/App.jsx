@@ -206,7 +206,7 @@ export default function App() {
 
               {/* Savings Goal Card */}
               <div className="card" id="savings-goal-card" style={{ cursor: 'pointer' }} onClick={() => window.switchView('view-settings', document.querySelector(".nav-item[data-target='view-settings']"))}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Savings Goal</div>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Top Savings Goal</div>
                 <div className="goal-header">
                   <span className="goal-title" id="goal-title-display">Goal: New Earphones 🎧</span>
                   <span className="goal-values" id="goal-progress-values">₹0 / ₹0</span>
@@ -214,10 +214,16 @@ export default function App() {
                 <div className="goal-progress-track">
                   <div className="goal-progress-bar" id="goal-progress-bar" style={{ background: 'linear-gradient(90deg, #047857, #d97706)' }}></div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div id="goal-pace-info" style={{ fontSize: '0.72rem', marginTop: 4, fontWeight: 600, color: 'var(--text-muted)' }}></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
                   <span className="goal-meta" id="goal-days-status">Spend less than usual to build savings</span>
-                  <span style={{ fontSize: '0.73rem', color: 'var(--primary)', fontWeight: 700 }}>Edit →</span>
+                  <span style={{ fontSize: '0.73rem', color: 'var(--primary)', fontWeight: 700 }}>Manage →</span>
                 </div>
+              </div>
+
+              {/* Smart Savings Tip */}
+              <div className="card smart-tip-card" id="smart-tip-card" style={{ display: 'none', padding: '14px 16px' }}>
+                <div id="smart-tip-content"></div>
               </div>
 
               {/* Recent Activity Card */}
@@ -282,6 +288,10 @@ export default function App() {
                     <div className="stat-value" id="report-savings" style={{ color: 'var(--gold)' }}>₹0.00</div>
                   </div>
                 </div>
+                <div id="savings-rate-row" style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--input-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', flex: 1 }}>Savings Rate</span>
+                  <div id="report-savings-rate"><span className="savings-rate-badge rate-neutral">—</span></div>
+                </div>
                 <div className="tip-box">
                   <strong>Money In</strong> = allowance + extra income &nbsp;·&nbsp; <strong>Money Out</strong> = all your expenses &nbsp;·&nbsp; <strong>Saved</strong> = what's left over
                 </div>
@@ -334,18 +344,51 @@ export default function App() {
                 <button className="btn btn-primary" id="save-salary-btn">Save Allowance</button>
               </div>
 
-              {/* Savings Goal Setup */}
-              <div className="card">
-                <h2>Savings Goal</h2>
-                <div className="tip-box" style={{ marginBottom: 14 }}>
-                  Set a goal like "New Phone 📱 — ₹15,000". Deposit small amounts regularly and watch the progress bar fill up!
+              {/* Auto-Save Rule */}
+              <div className="card" id="auto-save-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <h2 style={{ margin: 0 }}>Auto-Save</h2>
+                  <label className="toggle-switch">
+                    <input type="checkbox" id="auto-save-toggle" onChange={() => window.toggleAutoSave()} />
+                    <span className="toggle-slider"></span>
+                  </label>
                 </div>
-                <div className="input-group"><label>What are you saving for?</label><input type="text" id="goal-title-input" placeholder="e.g. New Earphones 🎧, Trip to Goa" /></div>
-                <div className="input-group"><label>Target Amount (₹)</label><input type="number" id="goal-target-input" placeholder="e.g. 5000" /></div>
-                <div className="input-group"><label>Add Money to Goal (₹) — deducted from Wallet</label><input type="number" id="goal-deposit-input" placeholder="How much to deposit now?" /></div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button className="btn btn-secondary" onClick={() => window.depositToSavings()} style={{ flex: 1 }}>Deposit</button>
-                  <button className="btn btn-primary" onClick={() => window.saveSavingsGoal()} style={{ flex: 2 }}>Save Goal</button>
+                <p style={{ fontSize: '0.73rem', color: 'var(--text-muted)', fontWeight: 500, lineHeight: 1.55, margin: 0 }}>
+                  After each expense, automatically move a portion of your daily budget surplus into your top savings goal.
+                </p>
+                <div id="auto-save-config" style={{ display: 'none', marginTop: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Sweep <span id="auto-save-percent-label">20</span>% of daily surplus</span>
+                  </div>
+                  <input type="range" id="auto-save-percent" min="5" max="50" step="5" defaultValue="20"
+                    style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                    onInput={(e) => window.updateAutoSavePercent(e.target.value)} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: 6 }}>
+                    <span>5%</span><span>50%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Multi-Goal Savings Manager */}
+              <div className="card" id="multi-goals-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <h2 style={{ margin: 0 }}>Savings Goals</h2>
+                  <button
+                    id="add-goal-btn"
+                    className="btn btn-primary"
+                    style={{ width: 'auto', padding: '7px 14px', fontSize: '0.78rem', borderRadius: 10, fontWeight: 700 }}
+                    onClick={() => window.showAddGoalForm()}
+                  >+ New Goal</button>
+                </div>
+                <p style={{ fontSize: '0.73rem', color: 'var(--text-muted)', fontWeight: 500, marginBottom: 14 }}>Up to 3 goals at once. Each gets its own progress bar and deposit slot.</p>
+                <div id="goals-list-container"></div>
+                <div id="add-goal-form" style={{ display: 'none', marginTop: 14, padding: 14, background: 'var(--input-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                  <div className="input-group"><label>What are you saving for?</label><input type="text" id="new-goal-title" placeholder="e.g. Trip to Goa ✈️, New Phone 📱" /></div>
+                  <div className="input-group" style={{ marginBottom: 12 }}><label>Target Amount (₹)</label><input type="number" id="new-goal-target" placeholder="e.g. 10000" /></div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => window.hideAddGoalForm()}>Cancel</button>
+                    <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => window.addGoal()}>Create Goal</button>
+                  </div>
                 </div>
               </div>
 

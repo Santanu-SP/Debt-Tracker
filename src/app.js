@@ -14,6 +14,8 @@ const STATE = {
         target: 0,
         current: 0
     },
+    savingsGoals: [],        // Multi-goal: [{id, title, target, savedAmount}]
+    autoSave: { enabled: false, percent: 20 }, // Auto-save settings
     balance: 0
 };
 
@@ -300,9 +302,22 @@ async function loadData() {
         }
         STATE.friends = friendsList;
 
-        // 4. Wallet balance & savings tracker calculations
+        // 4. Wallet balance & multi-goal savings calculations
         let walletBalance = 0;
         let savingsTotal = 0;
+
+        // Load multi-goals from Firestore, or migrate from legacy single goal
+        const firestoreGoals = userData.savingsGoals;
+        const loadedGoals = (firestoreGoals && firestoreGoals.length > 0)
+            ? firestoreGoals.map(g => ({ id: g.id, title: g.title, target: g.target || 0, savedAmount: 0 }))
+            : [{
+                id: 'g_legacy',
+                title: (userData.savingsGoal ? userData.savingsGoal.title : 'Set a savings goal! 🎯'),
+                target: (userData.savingsGoal ? userData.savingsGoal.target || 0 : 0),
+                savedAmount: 0
+            }];
+
+        STATE.autoSave = userData.autoSave || { enabled: false, percent: 20 };
 
         STATE.transactions.forEach(t => {
             if (t.payer === username) {
@@ -316,6 +331,13 @@ async function loadData() {
 
                 if (t.type === 'savings_deposit') {
                     savingsTotal += t.amount;
+                    // Attribute deposit to the correct goal by goalId
+                    const goalIdx = t.goalId ? loadedGoals.findIndex(g => g.id === t.goalId) : -1;
+                    if (goalIdx >= 0) {
+                        loadedGoals[goalIdx].savedAmount += t.amount;
+                    } else if (loadedGoals.length > 0) {
+                        loadedGoals[0].savedAmount += t.amount; // Legacy: goes to first goal
+                    }
                 }
             } else if (t.friend === username && t.type === 'repayment') {
                 walletBalance += t.amount;
@@ -323,7 +345,11 @@ async function loadData() {
         });
 
         STATE.balance = walletBalance;
-        STATE.savingsGoal.current = savingsTotal;
+        STATE.savingsGoals = loadedGoals;
+
+        // Backwards compat: keep STATE.savingsGoal pointing to first goal for updateDailyDial
+        const _pg = loadedGoals[0] || { title: 'Set a savings goal! 🎯', target: 0, savedAmount: 0 };
+        STATE.savingsGoal = { title: _pg.title, target: _pg.target, current: _pg.savedAmount };
 
         checkSalaryAutoAdd();
         renderAll();
@@ -385,11 +411,17 @@ function updateSavingsGoalUI() {
     const goalCard = document.getElementById('savings-goal-card');
     if (!goalCard) return;
 
-    const title = STATE.savingsGoal.title || "Set a savings goal! 🎯";
-    const target = STATE.savingsGoal.target || 0;
-    const current = STATE.savingsGoal.current || 0;
+    // Use first goal as the primary dashboard goal
+    const goals = STATE.savingsGoals || [];
+    const goal = goals[0] || { title: 'Set a savings goal! 🎯', target: 0, savedAmount: 0 };
+    const title = goal.title;
+    const target = goal.target || 0;
+    const current = goal.savedAmount || 0;
 
-    document.getElementById('goal-title-display').textContent = title;
+    const titleDisplay = document.getElementById('goal-title-display');
+    if (titleDisplay) {
+        titleDisplay.textContent = goals.length > 1 ? `${title} (+${goals.length - 1} more)` : title;
+    }
     document.getElementById('goal-progress-values').textContent = `${formatCurrency(current)} / ${formatCurrency(target)}`;
 
     const bar = document.getElementById('goal-progress-bar');
@@ -401,10 +433,10 @@ function updateSavingsGoalUI() {
     const status = document.getElementById('goal-days-status');
     if (status) {
         if (target === 0) {
-            status.textContent = "Open setup tab to configure a savings goal!";
+            status.textContent = "Open Setup tab to configure a savings goal!";
             status.style.color = "var(--text-secondary)";
         } else if (current >= target) {
-            status.textContent = "🎉 Savings goal achieved! Awesome!";
+            status.textContent = "🎉 Goal achieved! Set a new one in Setup.";
             status.style.color = "var(--success)";
         } else {
             const left = target - current;
@@ -537,6 +569,7 @@ async function quickLogTemplate(desc, amount) {
         const quickAmtInput = document.getElementById('quick-amount');
         if (quickAmtInput) quickAmtInput.value = '';
         await loadData();
+        await applyAutoSave();
     } catch (e) {
         alert("Error saving transaction: " + e.message);
     }
@@ -605,6 +638,7 @@ async function addTransaction() {
         amountInput.value = '';
         closeModals();
         await loadData();
+        if (type === 'expense' || type === 'split') await applyAutoSave();
     } catch (e) {
         alert("Transaction failed: " + e.message);
     }
@@ -827,6 +861,8 @@ function renderReports() {
 
     donut.style.background = `conic-gradient(${conicStr})`;
     legend.innerHTML = legendHtml || '<div style="color:var(--text-secondary); font-weight:600;">No spending logged</div>';
+
+    renderSavingsRateBadge();
 }
 
 // Hook router listener
@@ -920,12 +956,15 @@ function renderAll() {
     renderQuickSplitBubbles();
     updateDailyDial();
     updateSavingsGoalUI();
+    renderSmartTip();
+    renderSavingsPace();
 }
 
 function renderDashboard() {
     document.getElementById('parent-allowance').textContent = formatCurrency(STATE.settings.salaryAmount || 0);
     document.getElementById('total-wallet').textContent = formatCurrency(STATE.balance);
-    document.getElementById('saved-money').textContent = formatCurrency(STATE.savingsGoal ? STATE.savingsGoal.current || 0 : 0);
+    const _totalSaved = (STATE.savingsGoals || []).reduce((sum, g) => sum + (g.savedAmount || 0), 0);
+    document.getElementById('saved-money').textContent = formatCurrency(_totalSaved);
 
     const list = document.getElementById('recent-transactions');
     list.innerHTML = '';
@@ -1004,11 +1043,8 @@ function renderFriends() {
 function renderSettings() {
     document.getElementById('salary-input').value = STATE.settings.salaryAmount || '';
     document.getElementById('salary-date').value = STATE.settings.salaryDate || 1;
-
-    if (STATE.savingsGoal) {
-        document.getElementById('goal-title-input').value = STATE.savingsGoal.title || '';
-        document.getElementById('goal-target-input').value = STATE.savingsGoal.target || '';
-    }
+    renderGoalsManager();
+    renderAutoSaveUI();
 }
 
 function showHistoryView() {
@@ -1416,3 +1452,523 @@ async function saveProfile() {
         await loadData();
     } catch (e) { alert('Failed to save profile: ' + e.message); }
 }
+
+// ═══════════════════════════════════════════════════════════
+//  TOAST NOTIFICATION
+// ═══════════════════════════════════════════════════════════
+function showToast(message, duration = 3200) {
+    let toast = document.getElementById('ps-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'ps-toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('visible');
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(() => toast.classList.remove('visible'), duration);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FEATURE 1 — SMART SAVINGS TIP (Dashboard)
+// ═══════════════════════════════════════════════════════════
+function renderSmartTip() {
+    const card = document.getElementById('smart-tip-card');
+    const content = document.getElementById('smart-tip-content');
+    if (!card || !content) return;
+
+    const goals = STATE.savingsGoals || [];
+    const primaryGoal = goals[0];
+    const dailyBudget = STATE.settings.salaryAmount ? STATE.settings.salaryAmount / 30 : 0;
+
+    // Calculate overspend days in last 7 days
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const daySpendMap = {};
+    STATE.transactions.forEach(t => {
+        if (t.payer !== STATE.currentUser) return;
+        if (t.type !== 'expense' && t.type !== 'split') return;
+        const d = new Date(t.date);
+        if (d < sevenDaysAgo) return;
+        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        const amt = (t.type === 'split' && t.splitDetails) ? t.splitDetails.amountPerPerson : t.amount;
+        daySpendMap[key] = (daySpendMap[key] || 0) + amt;
+    });
+    const dayValues = Object.values(daySpendMap);
+    const overDays = dailyBudget > 0 ? dayValues.filter(v => v > dailyBudget).length : 0;
+
+    let tipIcon = '💡';
+    let tipText = '';
+
+    if (primaryGoal && primaryGoal.target > 0 && (primaryGoal.savedAmount || 0) >= primaryGoal.target) {
+        // Goal complete
+        tipIcon = '🎉';
+        tipText = `You've hit your "${primaryGoal.title}" goal! Head to Setup to create a new one.`;
+    } else if (overDays >= 3 && dailyBudget > 0) {
+        // Overspending
+        const avgSpend = dayValues.reduce((a, b) => a + b, 0) / (dayValues.length || 1);
+        const overshoot = Math.max(0, avgSpend - dailyBudget);
+        tipIcon = '⚠️';
+        tipText = `You've exceeded your daily limit ${overDays} days this week. Trimming just ${formatCurrency(overshoot)} per day would go straight into savings.`;
+    } else if (STATE.balance > (STATE.settings.salaryAmount || 0) * 0.25 && primaryGoal && primaryGoal.target > 0) {
+        // High idle balance, push toward goal
+        tipIcon = '🏦';
+        tipText = `You have ${formatCurrency(STATE.balance)} sitting idle. Consider parking some in "${primaryGoal.title}" — every deposit counts!`;
+    } else if (primaryGoal && primaryGoal.target > 0) {
+        // Show progress encouragement
+        const pct = Math.round(((primaryGoal.savedAmount || 0) / primaryGoal.target) * 100);
+        if (pct >= 75) {
+            tipIcon = '🏁';
+            tipText = `You're ${pct}% of the way to "${primaryGoal.title}" — almost there! Keep it up.`;
+        } else if (pct > 0) {
+            tipIcon = '📈';
+            tipText = `${pct}% of "${primaryGoal.title}" funded. Small, consistent deposits are your best friend here.`;
+        } else {
+            tipIcon = '🌱';
+            tipText = `Your "${primaryGoal.title}" goal is waiting for its first deposit. Head to Setup → Savings Goals to get started!`;
+        }
+    } else {
+        tipIcon = '🎯';
+        tipText = `Set a savings goal in the Setup tab to start getting personalized money tips!`;
+    }
+
+    content.innerHTML = `
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+            <div style="font-size:1.5rem;flex-shrink:0;margin-top:1px;">${tipIcon}</div>
+            <div>
+                <div style="font-size:0.65rem;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px;">Smart Tip</div>
+                <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);line-height:1.55;">${tipText}</div>
+            </div>
+        </div>
+    `;
+    card.style.display = 'block';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FEATURE 2 — SAVINGS PACE TRACKER (Dashboard goal card)
+// ═══════════════════════════════════════════════════════════
+function renderSavingsPace() {
+    const paceEl = document.getElementById('goal-pace-info');
+    if (!paceEl) return;
+
+    const goals = STATE.savingsGoals || [];
+    const goal = goals[0];
+    if (!goal || goal.target <= 0) { paceEl.textContent = ''; return; }
+
+    const remaining = Math.max(0, goal.target - (goal.savedAmount || 0));
+    if (remaining <= 0) {
+        paceEl.innerHTML = `<span style="color:var(--success);">🎉 Goal reached!</span>`;
+        return;
+    }
+
+    // Avg daily deposit from last 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const recentDeposits = STATE.transactions.filter(t =>
+        t.type === 'savings_deposit' &&
+        t.payer === STATE.currentUser &&
+        new Date(t.date) >= thirtyDaysAgo
+    );
+    const totalDeposited = recentDeposits.reduce((sum, t) => sum + t.amount, 0);
+    const avgDaily = totalDeposited / 30;
+
+    if (avgDaily >= 1) {
+        const daysToGoal = Math.ceil(remaining / avgDaily);
+        const color = daysToGoal <= 30 ? 'var(--success)' : daysToGoal <= 90 ? 'var(--gold)' : 'var(--text-muted)';
+        const dot = daysToGoal <= 30 ? '🟢' : daysToGoal <= 90 ? '🟡' : '⚪';
+        paceEl.innerHTML = `<span style="color:${color};">${dot} At this pace — goal in ~<strong>${daysToGoal} days</strong></span>`;
+    } else {
+        paceEl.innerHTML = `<span style="color:var(--text-muted);">Start depositing to see your savings pace</span>`;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FEATURE 3 — AUTO-SAVE RULE (Settings)
+// ═══════════════════════════════════════════════════════════
+function renderAutoSaveUI() {
+    const toggle = document.getElementById('auto-save-toggle');
+    const config = document.getElementById('auto-save-config');
+    const percentInput = document.getElementById('auto-save-percent');
+    const percentLabel = document.getElementById('auto-save-percent-label');
+
+    const as = STATE.autoSave || { enabled: false, percent: 20 };
+    if (toggle) toggle.checked = as.enabled;
+    if (config) config.style.display = as.enabled ? 'block' : 'none';
+    if (percentInput) percentInput.value = as.percent || 20;
+    if (percentLabel) percentLabel.textContent = as.percent || 20;
+}
+
+async function toggleAutoSave() {
+    const toggle = document.getElementById('auto-save-toggle');
+    const config = document.getElementById('auto-save-config');
+    const enabled = toggle ? toggle.checked : false;
+
+    STATE.autoSave = STATE.autoSave || { enabled: false, percent: 20 };
+    STATE.autoSave.enabled = enabled;
+    if (config) config.style.display = enabled ? 'block' : 'none';
+
+    try {
+        await db.collection('users').doc(STATE.currentUser).update({
+            'autoSave.enabled': enabled,
+            'autoSave.percent': STATE.autoSave.percent || 20
+        });
+        showToast(enabled ? 'Auto-Save turned on ✨' : 'Auto-Save turned off');
+    } catch (e) { console.error('Auto-save toggle save failed:', e); }
+}
+
+function updateAutoSavePercent(val) {
+    const label = document.getElementById('auto-save-percent-label');
+    if (label) label.textContent = val;
+    STATE.autoSave = STATE.autoSave || { enabled: true, percent: 20 };
+    STATE.autoSave.percent = parseInt(val);
+
+    clearTimeout(window._autoSaveDebounce);
+    window._autoSaveDebounce = setTimeout(async () => {
+        try {
+            await db.collection('users').doc(STATE.currentUser).update({ 'autoSave.percent': parseInt(val) });
+        } catch (e) { console.error('Auto-save percent save failed:', e); }
+    }, 800);
+}
+
+async function applyAutoSave() {
+    if (!STATE.autoSave || !STATE.autoSave.enabled) return;
+
+    const goals = STATE.savingsGoals || [];
+    // Find the first incomplete goal
+    const activeGoal = goals.find(g => g.target > 0 && (g.savedAmount || 0) < g.target) || goals[0];
+    if (!activeGoal || activeGoal.target <= 0) return;
+
+    // Compute today's total spend
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    let todaySpend = 0;
+    let alreadyAutoSavedToday = false;
+
+    STATE.transactions.forEach(t => {
+        if (t.payer !== STATE.currentUser) return;
+        const tDate = new Date(t.date);
+        if (tDate < todayStart) return;
+
+        if (t.type === 'expense' || t.type === 'split') {
+            const amt = (t.type === 'split' && t.splitDetails) ? t.splitDetails.amountPerPerson : t.amount;
+            todaySpend += amt;
+        }
+        if (t.type === 'savings_deposit' && t.desc && t.desc.startsWith('[Auto]')) {
+            alreadyAutoSavedToday = true;
+        }
+    });
+
+    if (alreadyAutoSavedToday) return; // One auto-save per day
+
+    const totalDays = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const dailyBudget = (STATE.settings.salaryAmount || 0) / totalDays;
+    const surplus = dailyBudget - todaySpend;
+    if (surplus <= 0) return;
+
+    const autoAmt = Math.floor(surplus * ((STATE.autoSave.percent || 20) / 100) * 100) / 100;
+    if (autoAmt < 1 || autoAmt > STATE.balance) return;
+
+    try {
+        await db.collection('transactions').add({
+            payer: STATE.currentUser,
+            desc: `[Auto] Swept to: ${activeGoal.title}`,
+            amount: autoAmt,
+            type: 'savings_deposit',
+            goalId: activeGoal.id,
+            date: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await loadData();
+        showToast(`${formatCurrency(autoAmt)} auto-swept into savings ✨`);
+    } catch (e) { console.error('Auto-save transaction failed:', e); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FEATURE 4 — MULTI-GOAL MANAGER (Settings)
+// ═══════════════════════════════════════════════════════════
+function renderGoalsManager() {
+    const container = document.getElementById('goals-list-container');
+    if (!container) return;
+
+    const goals = STATE.savingsGoals || [];
+    const addBtn = document.getElementById('add-goal-btn');
+    if (addBtn) addBtn.style.display = goals.length >= 3 ? 'none' : '';
+
+    if (goals.length === 0) {
+        container.innerHTML = `<div style="text-align:center;padding:20px 0;color:var(--text-muted);font-size:0.85rem;font-weight:600;">No goals yet — tap "+ New Goal" above</div>`;
+        return;
+    }
+
+    container.innerHTML = '';
+    goals.forEach((goal, idx) => {
+        const saved = goal.savedAmount || 0;
+        const target = goal.target || 0;
+        const pct = target > 0 ? Math.min(100, (saved / target) * 100) : 0;
+        const remaining = Math.max(0, target - saved);
+        const completed = pct >= 100;
+        const isFirst = idx === 0;
+
+        const div = document.createElement('div');
+        div.className = 'goal-item';
+
+        div.innerHTML = `
+            <div class="goal-item-header">
+                <span class="goal-item-title">${goal.title}${isFirst ? ' <span style="font-size:0.62rem;color:var(--primary);font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">• Active</span>' : ''}</span>
+                <div style="display:flex;gap:4px;">
+                    ${isFirst
+                        ? `<button onclick="toggleGoalEdit(${idx})" style="background:none;border:1px solid var(--border-color);color:var(--text-muted);cursor:pointer;font-size:0.78rem;padding:3px 8px;border-radius:6px;">✏️ Edit</button>`
+                        : `<button onclick="deleteGoal(${idx})" class="goal-delete-btn">✕ Delete</button>`}
+                </div>
+            </div>
+            <div class="goal-item-amounts">
+                <span class="goal-saved">${formatCurrency(saved)}</span>
+                <span class="goal-target-amt">of ${formatCurrency(target)}</span>
+                ${completed ? '<span style="color:var(--success);font-weight:700;font-size:0.75rem;margin-left:4px;">✅</span>' : ''}
+            </div>
+            <div class="goal-progress-track" style="margin:6px 0 8px;">
+                <div class="goal-progress-bar" style="width:${pct}%;background:linear-gradient(90deg,var(--primary),var(--gold));"></div>
+            </div>
+            <div id="goal-edit-form-${idx}" style="display:none;margin-bottom:10px;padding:12px;background:var(--input-bg);border-radius:10px;border:1px solid var(--border-color);">
+                <div class="input-group" style="margin-bottom:8px;"><label>Goal Name</label><input type="text" id="edit-goal-title-${idx}" value="${goal.title}" placeholder="e.g. New Earphones 🎧"/></div>
+                <div class="input-group" style="margin-bottom:10px;"><label>Target (₹)</label><input type="number" id="edit-goal-target-${idx}" value="${target > 0 ? target : ''}"/></div>
+                <button class="btn btn-primary" onclick="saveGoalEdit(${idx})" style="padding:8px 16px;font-size:0.8rem;width:auto;border-radius:10px;">Save Changes</button>
+            </div>
+            ${!completed
+                ? `<div style="display:flex;gap:8px;margin-top:2px;">
+                    <input type="number" id="deposit-input-${idx}" placeholder="₹ Deposit amount"
+                        style="flex:2;padding:9px 12px;border-radius:10px;border:1px solid var(--border-color);background:var(--input-bg);color:var(--text-primary);font-size:0.85rem;font-family:inherit;font-weight:600;">
+                    <button class="btn btn-secondary" onclick="depositToGoal(${idx})" style="flex:1;padding:9px;font-size:0.8rem;border-radius:10px;">Save 💰</button>
+                   </div>`
+                : `<div style="font-size:0.82rem;font-weight:700;color:var(--success);text-align:center;padding:8px 0;">🎉 Goal reached! Amazing work!</div>`}
+            ${!completed && remaining > 0 ? `<div style="font-size:0.7rem;color:var(--text-muted);font-weight:600;margin-top:6px;">${formatCurrency(remaining)} more to go</div>` : ''}
+        `;
+
+        container.appendChild(div);
+
+        if (idx < goals.length - 1) {
+            const sep = document.createElement('hr');
+            sep.style.cssText = 'border:none;border-top:1px solid var(--border-color);margin:16px 0;';
+            container.appendChild(sep);
+        }
+    });
+}
+
+function toggleGoalEdit(idx) {
+    const form = document.getElementById(`goal-edit-form-${idx}`);
+    if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+async function saveGoalEdit(idx) {
+    const titleInput = document.getElementById(`edit-goal-title-${idx}`);
+    const targetInput = document.getElementById(`edit-goal-target-${idx}`);
+    const title = titleInput ? titleInput.value.trim() : '';
+    const target = parseFloat(targetInput ? targetInput.value : '');
+
+    if (!title || isNaN(target) || target < 0) {
+        showToast('Please enter a valid name and target amount.');
+        return;
+    }
+
+    const goals = (STATE.savingsGoals || []).map(g => ({ id: g.id, title: g.title, target: g.target }));
+    if (!goals[idx]) return;
+    goals[idx] = { ...goals[idx], title, target };
+
+    try {
+        await db.collection('users').doc(STATE.currentUser).update({ savingsGoals: goals });
+        await loadData();
+        showToast('Goal updated! ✨');
+    } catch (e) { showToast('Failed to save: ' + e.message); }
+}
+
+function showAddGoalForm() {
+    const goals = STATE.savingsGoals || [];
+    if (goals.length >= 3) {
+        showToast('You can have up to 3 savings goals at a time.');
+        return;
+    }
+    const form = document.getElementById('add-goal-form');
+    if (form) form.style.display = 'block';
+    const btn = document.getElementById('add-goal-btn');
+    if (btn) btn.style.display = 'none';
+}
+
+function hideAddGoalForm() {
+    const form = document.getElementById('add-goal-form');
+    if (form) form.style.display = 'none';
+    const titleInput = document.getElementById('new-goal-title');
+    const targetInput = document.getElementById('new-goal-target');
+    if (titleInput) titleInput.value = '';
+    if (targetInput) targetInput.value = '';
+    const btn = document.getElementById('add-goal-btn');
+    if (btn) btn.style.display = '';
+}
+
+async function addGoal() {
+    const titleInput = document.getElementById('new-goal-title');
+    const targetInput = document.getElementById('new-goal-target');
+    const title = titleInput ? titleInput.value.trim() : '';
+    const target = parseFloat(targetInput ? targetInput.value : '');
+
+    if (!title || isNaN(target) || target <= 0) {
+        showToast('Please enter a goal name and a target amount.');
+        return;
+    }
+
+    const currentGoals = STATE.savingsGoals || [];
+
+    // If we have only the placeholder goal (no target, legacy id), replace it
+    if (currentGoals.length === 1 && currentGoals[0].id === 'g_legacy' && currentGoals[0].target === 0) {
+        const updated = [{ id: 'g_legacy', title, target }];
+        try {
+            await db.collection('users').doc(STATE.currentUser).update({ savingsGoals: updated });
+            hideAddGoalForm();
+            await loadData();
+            showToast(`Goal "${title}" created! 🎯`);
+        } catch (e) { showToast('Failed to create goal: ' + e.message); }
+        return;
+    }
+
+    if (currentGoals.length >= 3) {
+        showToast('You can have up to 3 savings goals at a time.');
+        return;
+    }
+
+    const newGoal = { id: 'g_' + Date.now(), title, target };
+    const newGoals = [...currentGoals.map(g => ({ id: g.id, title: g.title, target: g.target })), newGoal];
+
+    try {
+        await db.collection('users').doc(STATE.currentUser).update({ savingsGoals: newGoals });
+        hideAddGoalForm();
+        await loadData();
+        showToast(`Goal "${title}" created! 🎯`);
+    } catch (e) { showToast('Failed to create goal: ' + e.message); }
+}
+
+async function depositToGoal(idx) {
+    const input = document.getElementById(`deposit-input-${idx}`);
+    const amount = parseFloat(input ? input.value : '');
+
+    if (isNaN(amount) || amount <= 0) {
+        showToast('Please enter a valid deposit amount.');
+        return;
+    }
+    if (amount > STATE.balance) {
+        showToast('Insufficient wallet balance.');
+        return;
+    }
+
+    const goal = (STATE.savingsGoals || [])[idx];
+    if (!goal) return;
+
+    try {
+        await db.collection('transactions').add({
+            payer: STATE.currentUser,
+            desc: `Deposit to: ${goal.title}`,
+            amount,
+            type: 'savings_deposit',
+            goalId: goal.id,
+            date: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        if (input) input.value = '';
+        await loadData();
+        showToast(`${formatCurrency(amount)} saved toward "${goal.title}" ✨`);
+    } catch (e) { showToast('Deposit failed: ' + e.message); }
+}
+
+async function deleteGoal(idx) {
+    const goals = STATE.savingsGoals || [];
+    const goal = goals[idx];
+    if (!goal) return;
+
+    if (goals.length <= 1) {
+        showToast("Can't delete your only goal — edit it instead.");
+        return;
+    }
+
+    const savedAmt = goal.savedAmount || 0;
+    if (!confirm(`Delete "${goal.title}"?${savedAmt > 0 ? ` Your ${formatCurrency(savedAmt)} deposit will be returned to your wallet.` : ''}`)) return;
+
+    const newGoals = goals.filter((_, i) => i !== idx).map(g => ({ id: g.id, title: g.title, target: g.target }));
+
+    try {
+        const batch = db.batch();
+        if (savedAmt > 0) {
+            const txRef = db.collection('transactions').doc();
+            batch.set(txRef, {
+                payer: STATE.currentUser,
+                desc: `Returned from: ${goal.title}`,
+                amount: savedAmt,
+                type: 'income',
+                date: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        batch.update(db.collection('users').doc(STATE.currentUser), { savingsGoals: newGoals });
+        await batch.commit();
+        await loadData();
+        showToast(savedAmt > 0 ? `Goal deleted. ${formatCurrency(savedAmt)} returned to wallet.` : `"${goal.title}" deleted.`);
+    } catch (e) { showToast('Failed to delete goal: ' + e.message); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FEATURE 5 — MONTHLY SAVINGS RATE BADGE (Reports)
+// ═══════════════════════════════════════════════════════════
+function renderSavingsRateBadge() {
+    const el = document.getElementById('report-savings-rate');
+    if (!el) return;
+
+    const filterEl = document.getElementById('reports-filter');
+    const filterVal = filterEl ? filterEl.value : 'this_month';
+    const now = new Date();
+    let startDate, endDate;
+
+    if (filterVal === 'this_month') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    } else if (filterVal === 'last_month') {
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    } else {
+        startDate = new Date(0);
+        endDate = new Date(8640000000000000);
+    }
+
+    let income = 0, expense = 0;
+    STATE.transactions.forEach(t => {
+        const tDate = new Date(t.date);
+        if (tDate < startDate || tDate > endDate) return;
+        if (t.type === 'income' || t.type === 'salary' || (t.type === 'repayment' && t.friend === STATE.currentUser)) {
+            income += t.amount;
+        } else if (t.payer === STATE.currentUser) {
+            if (t.type === 'expense' || t.type === 'lend' || t.type === 'savings_deposit') {
+                expense += t.amount;
+            } else if (t.type === 'split' && t.splitDetails) {
+                expense += t.splitDetails.amountPerPerson;
+            } else if (t.type === 'repayment' && t.payer === STATE.currentUser) {
+                expense += t.amount;
+            }
+        }
+    });
+
+    if (income === 0) {
+        el.innerHTML = `<span class="savings-rate-badge rate-neutral">No income logged</span>`;
+        return;
+    }
+
+    const rate = Math.round(((income - expense) / income) * 100);
+    const clampedRate = Math.max(-99, Math.min(100, rate));
+    let badgeClass, emoji;
+    if (clampedRate >= 20)      { badgeClass = 'rate-good'; emoji = '📈'; }
+    else if (clampedRate >= 10) { badgeClass = 'rate-ok';   emoji = '📊'; }
+    else                        { badgeClass = 'rate-low';  emoji = '📉'; }
+
+    el.innerHTML = `<span class="savings-rate-badge ${badgeClass}">${clampedRate}% ${emoji}</span>`;
+}
+
+// Expose new functions to window for inline event handlers
+window.showAddGoalForm = showAddGoalForm;
+window.hideAddGoalForm = hideAddGoalForm;
+window.addGoal = addGoal;
+window.depositToGoal = depositToGoal;
+window.deleteGoal = deleteGoal;
+window.toggleGoalEdit = toggleGoalEdit;
+window.saveGoalEdit = saveGoalEdit;
+window.toggleAutoSave = toggleAutoSave;
+window.updateAutoSavePercent = updateAutoSavePercent;
+
