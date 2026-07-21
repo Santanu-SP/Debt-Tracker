@@ -130,25 +130,30 @@ VITE_FIREBASE_APP_ID=your_app_id
 
 ## 📁 Project Structure
 
-A standard Vite + React layout, keeping Firebase logic neatly separated from the UI:
+A clean, modern Vite + React layout with dedicated separation between the React UI components and the runtime business logic:
 
 ```text
 Pocket-Safe/
 │
-├── src/
-│   ├── assets/           # Icons, logo, images
-│   ├── components/       # Ledger, splitter, goals, reports, shared UI
-│   ├── pages/            # Main screens
-│   ├── firebase/         # Firebase initialization + Firestore helpers
-│   ├── App.jsx
-│   └── main.jsx
+├── public/               # Static assets & runtime script
+│   ├── app.js            # Core application state & Firestore business logic
+│   ├── assets/           # App branding & logo assets (logo.png)
+│   ├── favicon.svg       # Favicon icon
+│   ├── icons.svg         # App icon SVG definitions
+│   └── manifest.json     # Progressive Web App (PWA) manifest
 │
-├── public/
-├── .env.example
-├── .gitignore
-├── package.json
-├── vite.config.js
-└── README.md
+├── src/                  # React Application UI Layer
+│   ├── components/       # Sub-components (e.g. SplashScreen)
+│   ├── App.css           # Layout utility styles
+│   ├── App.jsx           # Main application shell & tab views
+│   ├── index.css         # Global design system, CSS variables & dark mode
+│   └── main.jsx          # React application entry point
+│
+├── index.html            # Single page HTML entry point (Firebase SDK compat scripts)
+├── LICENSE               # MIT License
+├── package.json          # Project dependencies & npm scripts
+├── vite.config.js        # Vite configuration & plugin setup
+└── README.md             # Project overview & documentation
 ```
 
 ## ✨ Features
