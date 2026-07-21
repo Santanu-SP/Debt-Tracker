@@ -1686,7 +1686,7 @@ function renderGoalsManager() {
     if (addBtn) addBtn.style.display = goals.length >= 3 ? 'none' : '';
 
     if (goals.length === 0) {
-        container.innerHTML = `<div style="text-align:center;padding:20px 0;color:var(--text-muted);font-size:0.85rem;font-weight:600;">No goals yet — tap "+ New Goal" above</div>`;
+        container.innerHTML = `<div onclick="showAddGoalForm()" style="cursor:pointer;text-align:center;padding:20px 0;color:var(--primary);font-size:0.88rem;font-weight:700;">No goals yet — tap here to add one 🎯</div>`;
         return;
     }
 
